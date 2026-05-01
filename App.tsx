@@ -45,14 +45,21 @@ export default function App() {
   const [notifEmail, setNotifEmail] = useState(false);
   const [notifSms, setNotifSms] = useState(true);
 
-  // ESTADOS DOS FORMULÁRIOS
+  // Estados dos Formulários
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [regNome, setRegNome] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPass, setRegPassword] = useState('');
 
-  // ESTADOS SOLICITADOS (OLHO E ANIMAÇÃO)
+  // Estados de Endereço no Cadastro e Edição[cite: 12]
+  const [regCep, setRegCep] = useState('');
+  const [regRua, setRegRua] = useState('');
+  const [regNum, setRegNum] = useState('');
+  const [regBairro, setRegBairro] = useState('');
+  const [regCidade, setRegCidade] = useState('');
+
+  // Estados de Segurança e Animação
   const [showLoginPass, setShowLoginPass] = useState(false);
   const [showRegPass, setShowRegPass] = useState(false);
   const [statusColor, setStatusColor] = useState(COLORS.primary);
@@ -65,30 +72,31 @@ export default function App() {
   const ds = (size) => size * fontScale;
 
   const handleSignUp = async () => {
-    if (!regNome || !regEmail || !regPass) {
-      setStatusColor(COLORS.error); // Animação de erro
-      setTimeout(() => setStatusColor(COLORS.primary), 500);
-      Alert.alert("Erro", "Preencha todos os campos para criar sua conta.");
+    if (!regNome || !regEmail || !regPass || !regRua) {
+      setStatusColor(COLORS.error);
+      setTimeout(() => setStatusColor(COLORS.primary), 600);
+      Alert.alert("Erro", "Preencha todos os campos, incluindo o endereço completo.");
       return;
     }
     try {
-      const userData = { nome: regNome, email: regEmail, senha: regPass };
+      const fullAddr = `${regRua}, ${regNum} - ${regBairro}, ${regCidade}`;
+      const userData = { nome: regNome, email: regEmail, senha: regPass, endereco: fullAddr };
       await AsyncStorage.setItem(`@user_${regEmail}`, JSON.stringify(userData));
-      setStatusColor(COLORS.success); // Animação de sucesso
+      setStatusColor(COLORS.success);
       setTimeout(() => {
         setStatusColor(COLORS.primary);
         Alert.alert("Sucesso", "Conta criada com sucesso! Faça seu login.");
         setCurrentScreen('login');
-      }, 500);
+      }, 600);
     } catch (e) {
-      Alert.alert("Erro", "Falha ao salvar dados localmente.");
+      Alert.alert("Erro", "Falha ao salvar dados.");
     }
   };
 
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) {
-      setStatusColor(COLORS.error); // Animação de erro
-      setTimeout(() => setStatusColor(COLORS.primary), 500);
+      setStatusColor(COLORS.error);
+      setTimeout(() => setStatusColor(COLORS.primary), 600);
       Alert.alert("Aviso", "Preencha e-mail e senha.");
       return;
     }
@@ -98,20 +106,21 @@ export default function App() {
 
       if (user) {
         if (user.senha === loginPassword) {
-          setStatusColor(COLORS.success); // Animação de sucesso
+          setStatusColor(COLORS.success);
           setTimeout(() => {
             setStatusColor(COLORS.primary);
             setCurrentUser(user);
+            setUserAddress(user.endereco);
             setCurrentScreen('home');
-          }, 500);
+          }, 600);
         } else {
           setStatusColor(COLORS.error);
-          setTimeout(() => setStatusColor(COLORS.primary), 500);
+          setTimeout(() => setStatusColor(COLORS.primary), 600);
           Alert.alert("Erro de Login", "Senha incorreta.");
         }
       } else {
         setStatusColor(COLORS.error);
-        setTimeout(() => setStatusColor(COLORS.primary), 500);
+        setTimeout(() => setStatusColor(COLORS.primary), 600);
         Alert.alert("Erro de Login", "E-mail não cadastrado.");
       }
     } catch (e) {
@@ -119,30 +128,30 @@ export default function App() {
     }
   };
 
+  const handleUpdateAddress = async (newAddrObj) => {
+    try {
+      const fullAddr = `${newAddrObj.rua}, ${newAddrObj.num} - ${newAddrObj.bairro}, ${newAddrObj.cidade}`;
+      setUserAddress(fullAddr);
+      const updatedUser = { ...currentUser, endereco: fullAddr };
+      await AsyncStorage.setItem(`@user_${currentUser.email}`, JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      setCurrentScreen('subpage');
+    } catch (e) {
+      Alert.alert("Erro", "Não foi possível atualizar.");
+    }
+  };
+
   const renderScreen = () => {
     if (!currentUser) {
       switch (currentScreen) {
         case 'login': 
-          return <LoginScreen 
-            email={loginEmail} setEmail={setLoginEmail} 
-            pass={loginPassword} setPass={setLoginPassword} 
-            showPass={showLoginPass} setShowPass={setShowLoginPass}
-            btnColor={statusColor}
-            onBack={() => setCurrentScreen('splash')} onEnter={handleLogin} onForgot={() => setCurrentScreen('forgot')} ds={ds} 
-          />;
+          return <LoginScreen email={loginEmail} setEmail={setLoginEmail} pass={loginPassword} setPass={setLoginPassword} showPass={showLoginPass} setShowPass={setShowLoginPass} btnColor={statusColor} onBack={() => setCurrentScreen('splash')} onEnter={handleLogin} onForgot={() => setCurrentScreen('forgot')} ds={ds} />;
         case 'signup': 
-          return <SignUpScreen 
-            nome={regNome} setNome={setRegNome} 
-            email={regEmail} setEmail={setRegEmail} 
-            pass={regPass} setPass={setRegPassword} 
-            showPass={showRegPass} setShowPass={setShowRegPass}
-            btnColor={statusColor}
-            onBack={() => setCurrentScreen('splash')} onComplete={handleSignUp} ds={ds} 
-          />;
+          return <SignUpScreen nome={regNome} setNome={setRegNome} email={regEmail} setEmail={setRegEmail} pass={regPass} setPass={setRegPassword} showPass={showRegPass} setShowPass={setShowRegPass} cep={regCep} setCep={setRegCep} rua={regRua} setRua={setRegRua} num={regNum} setNum={setRegNum} bairro={regBairro} setBairro={setRegBairro} cidade={regCidade} setCidade={setRegCidade} btnColor={statusColor} onBack={() => setCurrentScreen('splash')} onComplete={handleSignUp} ds={ds} />;
         case 'forgot': 
           return <ForgotScreen onBack={() => setCurrentScreen('login')} ds={ds} />;
         default: 
-          return <SplashScreen onLogin={() => setCurrentScreen('login')} onSignUp={() => setCurrentScreen('signup')} onStart={() => setCurrentScreen('login')} ds={ds} />;
+          return <SplashScreen onLogin={() => setCurrentScreen('login')} onSignUp={() => setCurrentScreen('signup')} ds={ds} />;
       }
     }
 
@@ -152,19 +161,9 @@ export default function App() {
       case 'profile': 
         return <ProfileScreen userName={currentUser.nome} onBack={() => setCurrentScreen('home')} onLogout={() => {setCurrentUser(null); setCurrentScreen('splash');}} onNavigate={navigateToSubPage} ds={ds} />;
       case 'editAddress': 
-        return <EditAddressScreen onBack={() => setCurrentScreen('subpage')} onSave={(newAddr) => { setUserAddress(newAddr); setCurrentScreen('subpage'); }} ds={ds} />;
+        return <EditAddressScreen onBack={() => setCurrentScreen('subpage')} onSave={handleUpdateAddress} ds={ds} />;
       case 'subpage': 
-        return (
-          <SpecificSubPage 
-            title={pageTitle} 
-            onBack={() => setCurrentScreen('profile')} 
-            onEditAddress={() => setCurrentScreen('editAddress')}
-            notifStates={{ notifPush, setNotifPush, notifEmail, setNotifEmail, notifSms, setNotifSms }}
-            accessibility={{ fontScale, setFontScale }}
-            ds={ds}
-            userAddress={userAddress}
-          />
-        );
+        return <SpecificSubPage title={pageTitle} onBack={() => setCurrentScreen('profile')} onEditAddress={() => setCurrentScreen('editAddress')} notifStates={{ notifPush, setNotifPush, notifEmail, setNotifEmail, notifSms, setNotifSms }} accessibility={{ fontScale, setFontScale }} ds={ds} userAddress={userAddress} />;
       default: 
         return <HomeScreen userName={currentUser.nome} onProfile={() => setCurrentScreen('profile')} ds={ds} userAddress={userAddress} onAddressClick={() => navigateToSubPage('Endereço')} />;
     }
@@ -180,50 +179,33 @@ export default function App() {
 
 const CustomHeader = ({ onBack, title, ds }) => (
   <View style={styles.headerContainer}>
-    <TouchableOpacity style={styles.backButton} onPress={onBack}>
-      <Text style={[styles.backIcon, { fontSize: ds(18) }]}>✕</Text>
-    </TouchableOpacity>
+    <TouchableOpacity style={styles.backButton} onPress={onBack}><Text style={[styles.backIcon, { fontSize: ds(18) }]}>✕</Text></TouchableOpacity>
     {title && <Text style={[styles.headerTitleText, { fontSize: ds(18) }]}>{title}</Text>}
   </View>
 );
 
 const ProfileSection = ({ title, children, ds }) => (
-  <View style={styles.sectionWrapper}>
-    <Text style={[styles.sectionLabel, { fontSize: ds(12) }]}>{title}</Text>
-    <View style={styles.sectionCard}>{children}</View>
-  </View>
+  <View style={styles.sectionWrapper}><Text style={[styles.sectionLabel, { fontSize: ds(12) }]}>{title}</Text><View style={styles.sectionCard}>{children}</View></View>
 );
 
 const MenuButton = ({ label, icon, onPress, color = COLORS.primary, ds }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <View style={styles.menuIconWrapper}>
-      <Text style={[styles.menuIcon, { fontSize: ds(18) }]}>{icon}</Text>
-    </View>
+    <View style={styles.menuIconWrapper}><Text style={[styles.menuIcon, { fontSize: ds(18) }]}>{icon}</Text></View>
     <Text style={[styles.menuText, { color: color, fontSize: ds(16) }]}>{label}</Text>
     <Text style={[styles.arrowIcon, { fontSize: ds(20) }]}>›</Text>
   </TouchableOpacity>
 );
 
-const SplashScreen = ({ onLogin, onSignUp, onStart, ds }) => (
+const SplashScreen = ({ onLogin, onSignUp, ds }) => (
   <SafeAreaView style={[styles.container, { backgroundColor: COLORS.primary }]}>
     <ScrollView contentContainerStyle={styles.scrollCenter} bounces={false}>
-      <Image 
-        source={require('./assets/icone-app.png')} 
-        style={[styles.logoImage, { width: width * 0.7, height: width * 0.7 * 0.6 }]} 
-        resizeMode="contain" 
-      />
+      <Image source={require('./assets/icone-app.png')} style={[styles.logoImage, { width: width * 0.7, height: width * 0.7 * 0.6 }]} resizeMode="contain" />
       <View style={styles.splashActions}>
-        <TouchableOpacity onPress={onLogin}>
-          <Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Já é Cadastrado? <Text style={styles.boldUnderline}>Login</Text></Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onSignUp}>
-          <Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Não tem conta? <Text style={styles.boldUnderline}>Cadastre-se</Text></Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={onLogin}><Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Já é Cadastrado? <Text style={styles.boldUnderline}>Login</Text></Text></TouchableOpacity>
+        <TouchableOpacity onPress={onSignUp}><Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Não tem conta? <Text style={styles.boldUnderline}>Cadastre-se</Text></Text></TouchableOpacity>
       </View>
       <Text style={[styles.splashTitle, { fontSize: ds(24) }]}>Acesse para reservar seu canto</Text>
-      <TouchableOpacity style={styles.btnAcent} onPress={onStart}>
-        <Text style={[styles.btnText, { fontSize: ds(18) }]}>Começar Agora</Text>
-      </TouchableOpacity>
+      <TouchableOpacity style={styles.btnAcent} onPress={onLogin}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Começar Agora</Text></TouchableOpacity>
     </ScrollView>
   </SafeAreaView>
 );
@@ -235,23 +217,11 @@ const LoginScreen = ({ email, setEmail, pass, setPass, showPass, setShowPass, bt
       <Text style={[styles.screenTitle, { fontSize: ds(32) }]}>Bem-vindo!</Text>
       <TextInput value={email} onChangeText={setEmail} placeholder="Seu e-mail" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="email-address" autoCapitalize="none" />
       <View style={styles.passwordInputWrapper}>
-        <TextInput 
-          value={pass} 
-          onChangeText={setPass} 
-          placeholder="Sua senha" 
-          style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} 
-          secureTextEntry={!showPass} 
-        />
-        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}>
-          <Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text>
-        </TouchableOpacity>
+        <TextInput value={pass} onChangeText={setPass} placeholder="Sua senha" style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} secureTextEntry={!showPass} />
+        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}><Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text></TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={onForgot} style={{ alignSelf: 'flex-end', marginVertical: 20 }}>
-        <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: ds(14) }}>Esqueci minha senha</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onEnter}>
-        <Text style={[styles.btnText, { fontSize: ds(18) }]}>Entrar</Text>
-      </TouchableOpacity>
+      <TouchableOpacity onPress={onForgot} style={{ alignSelf: 'flex-end', marginVertical: 20 }}><Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: ds(14) }}>Esqueci minha senha</Text></TouchableOpacity>
+      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onEnter}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Entrar</Text></TouchableOpacity>
     </View>
   </SafeAreaView>
 );
@@ -270,7 +240,7 @@ const ForgotScreen = ({ onBack, ds }) => (
   </SafeAreaView>
 );
 
-const SignUpScreen = ({ nome, setNome, email, setEmail, pass, setPass, showPass, setShowPass, btnColor, onBack, onComplete, ds }) => (
+const SignUpScreen = ({ nome, setNome, email, setEmail, pass, setPass, showPass, setShowPass, btnColor, onBack, onComplete, ds, cep, setCep, rua, setRua, num, setNum, bairro, setBairro, cidade, setCidade }) => (
   <SafeAreaView style={styles.container}>
     <CustomHeader onBack={onBack} title="Criar Conta" ds={ds} />
     <ScrollView contentContainerStyle={styles.paddedContent}>
@@ -278,30 +248,20 @@ const SignUpScreen = ({ nome, setNome, email, setEmail, pass, setPass, showPass,
       <TextInput value={nome} onChangeText={setNome} placeholder="Nome Completo" style={[styles.inputField, { fontSize: ds(16) }]} />
       <TextInput value={email} onChangeText={setEmail} placeholder="E-mail" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="email-address" autoCapitalize="none" />
       <View style={[styles.passwordInputWrapper, { marginBottom: 15 }]}>
-        <TextInput 
-          value={pass} 
-          onChangeText={setPass} 
-          placeholder="Senha" 
-          style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} 
-          secureTextEntry={!showPass} 
-        />
-        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}>
-          <Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text>
-        </TouchableOpacity>
+        <TextInput value={pass} onChangeText={setPass} placeholder="Senha" style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} secureTextEntry={!showPass} />
+        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}><Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text></TouchableOpacity>
       </View>
       
-      <Text style={[styles.formSectionTitle, { marginTop: 20, fontSize: ds(22) }]}>Endereço[cite: 14]</Text>
-      <TextInput placeholder="CEP (00000-000)" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" />
-      <TextInput placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} />
+      <Text style={[styles.formSectionTitle, { marginTop: 20, fontSize: ds(22) }]}>Endereço[cite: 12]</Text>
+      <TextInput value={cep} onChangeText={setCep} placeholder="CEP (00000-000)" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" />
+      <TextInput value={rua} onChangeText={setRua} placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} />
       <View style={styles.rowInputs}>
-        <TextInput placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" />
-        <TextInput placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} />
+        <TextInput value={num} onChangeText={setNum} placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" />
+        <TextInput value={bairro} onChangeText={setBairro} placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} />
       </View>
-      <TextInput placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} />
+      <TextInput value={cidade} onChangeText={setCidade} placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} />
 
-      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onComplete}>
-        <Text style={[styles.btnText, { fontSize: ds(18) }]}>Finalizar Cadastro</Text>
-      </TouchableOpacity>
+      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onComplete}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Finalizar Cadastro</Text></TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
   </SafeAreaView>
@@ -320,35 +280,21 @@ const HomeScreen = ({ onProfile, ds, userAddress, onAddressClick, userName }) =>
       <View style={styles.homeHeader}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.homeHeaderText, { fontSize: ds(22) }]}>Olá, {userName}!</Text>
-          <TouchableOpacity onPress={onAddressClick}>
-            <Text style={{ color: COLORS.secondary, fontSize: ds(12), marginTop: 4 }} numberOfLines={1}>
-              📍 {userAddress}
-            </Text>
-          </TouchableOpacity>
+          <TouchableOpacity onPress={onAddressClick}><Text style={{ color: COLORS.secondary, fontSize: ds(12), marginTop: 4 }} numberOfLines={1}>📍 {userAddress}</Text></TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={onProfile} style={styles.profileCircleSmall}>
-          <Image source={USER_IMAGE} style={{ width: ds(45), height: ds(45), borderRadius: ds(22.5) }} />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={onProfile} style={styles.profileCircleSmall}><Image source={USER_IMAGE} style={{ width: ds(45), height: ds(45), borderRadius: ds(22.5) }} /></TouchableOpacity>
       </View>
       <View style={styles.homeBody}>
-        <FlatList
-          data={LOCAIS}
-          keyExtractor={item => item.id}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.locationCard}>
-              <View style={[styles.cardBanner, { backgroundColor: item.cor }]} />
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardPlaceName, { fontSize: ds(18) }]}>{item.nome}</Text>
-                <Text style={[styles.cardPlaceDesc, { fontSize: ds(13) }]}>{item.desc}</Text>
-                <View style={styles.badgeCupom}>
-                  <Text style={[styles.badgeText, { fontSize: ds(11) }]}>🎫 {item.cupons} cupons</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-        />
+        <FlatList data={LOCAIS} keyExtractor={item => item.id} showsVerticalScrollIndicator={false} renderItem={({ item }) => (
+          <TouchableOpacity style={styles.locationCard}>
+            <View style={[styles.cardBanner, { backgroundColor: item.cor }]} />
+            <View style={styles.cardInfo}>
+              <Text style={[styles.cardPlaceName, { fontSize: ds(18) }]}>{item.nome}</Text>
+              <Text style={[styles.cardPlaceDesc, { fontSize: ds(13) }]}>{item.desc}</Text>
+              <View style={styles.badgeCupom}><Text style={[styles.badgeText, { fontSize: ds(11) }]}>🎫 {item.cupons} cupons</Text></View>
+            </View>
+          </TouchableOpacity>
+        )} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} />
       </View>
     </View>
   );
@@ -359,25 +305,16 @@ const ProfileScreen = ({ userName, onBack, onLogout, onNavigate, ds }) => (
     <CustomHeader onBack={onBack} title="Meu Perfil" ds={ds} />
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.profileHero}>
-        <View style={styles.avatarLarge}>
-           <Image source={USER_IMAGE} style={{ width: ds(120), height: ds(120), borderRadius: ds(60) }} />
-        </View>
-        <TouchableOpacity style={styles.changePhotoBtn} onPress={() => alert('Em breve!')}>
-          <Text style={[styles.changePhotoText, { fontSize: ds(14) }]}>📸 Alterar Foto</Text>
-        </TouchableOpacity>
+        <View style={styles.avatarLarge}><Image source={USER_IMAGE} style={{ width: ds(120), height: ds(120), borderRadius: ds(60) }} /></View>
+        <TouchableOpacity style={styles.changePhotoBtn} onPress={() => alert('Simulação')}><Text style={[styles.changePhotoText, { fontSize: ds(14) }]}>📸 Alterar Foto</Text></TouchableOpacity>
         <Text style={[styles.profileName, { fontSize: ds(24) }]}>{userName}</Text>
       </View>
       <ProfileSection title="Atividade e Pedidos" ds={ds}>
         <MenuButton label="Meus Pedidos" icon="🛍️" onPress={() => onNavigate('Meus Pedidos')} ds={ds} />
         <MenuButton label="Meus Cupons" icon="🎫" onPress={() => onNavigate('Meus Cupons')} ds={ds} />
       </ProfileSection>
-      <ProfileSection title="Endereço" ds={ds}>
-        <MenuButton label="Endereço Cadastrado" icon="🏠" onPress={() => onNavigate('Endereço')} ds={ds} />
-      </ProfileSection>
-      <ProfileSection title="Segurança" ds={ds}>
-        <MenuButton label="Alterar Senha" icon="🔑" onPress={() => onNavigate('Alterar Senha')} ds={ds} />
-        <MenuButton label="Segurança da Conta" icon="🛡️" onPress={() => onNavigate('Segurança')} ds={ds} />
-      </ProfileSection>
+      <ProfileSection title="Endereço" ds={ds}><MenuButton label="Endereço Cadastrado" icon="🏠" onPress={() => onNavigate('Endereço')} ds={ds} /></ProfileSection>
+      <ProfileSection title="Segurança" ds={ds}><MenuButton label="Alterar Senha" icon="🔑" onPress={() => onNavigate('Alterar Senha')} ds={ds} /><MenuButton label="Segurança da Conta" icon="🛡️" onPress={() => onNavigate('Segurança')} ds={ds} /></ProfileSection>
       <ProfileSection title="Suporte e Configurações" ds={ds}>
         <MenuButton label="Notificações" icon="🔔" onPress={() => onNavigate('Notificações')} ds={ds} />
         <MenuButton label="Acessibilidade" icon="♿" onPress={() => onNavigate('Acessibilidade')} ds={ds} />
@@ -389,7 +326,7 @@ const ProfileScreen = ({ userName, onBack, onLogout, onNavigate, ds }) => (
   </SafeAreaView>
 );
 
-const SpecificSubPage = ({ title, onBack, notifStates, onEditAddress, accessibility, ds, userAddress }) => {
+const SpecificSubPage = ({ title, onBack, notifStates, accessibility, ds, userAddress, onEditAddress }) => {
   const renderContent = () => {
     switch (title) {
       case 'Acessibilidade':
@@ -398,33 +335,20 @@ const SpecificSubPage = ({ title, onBack, notifStates, onEditAddress, accessibil
             <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Tamanho da Fonte</Text>
             <Text style={{ fontSize: ds(14), color: '#666', marginBottom: 20 }}>Ajuste a escala das letras para todo o app.</Text>
             <View style={styles.rowInputs}>
-              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.max(0.8, accessibility.fontScale - 0.1))}>
-                <Text style={[styles.btnText, { fontSize: ds(16) }]}>Diminuir -</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.min(1.5, accessibility.fontScale + 0.1))}>
-                <Text style={[styles.btnText, { fontSize: ds(16) }]}>Aumentar +</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.max(0.8, accessibility.fontScale - 0.1))}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Diminuir -</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.min(1.5, accessibility.fontScale + 0.1))}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Aumentar +</Text></TouchableOpacity>
             </View>
-            <TouchableOpacity style={[styles.btnAcent, { marginTop: 20 }]} onPress={() => accessibility.setFontScale(1)}>
-              <Text style={[styles.btnText, { fontSize: ds(16) }]}>Resetar Padrão</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btnAcent, { marginTop: 20 }]} onPress={() => accessibility.setFontScale(1)}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Resetar Padrão</Text></TouchableOpacity>
           </View>
         );
       case 'Ajuda':
         return (
           <View>
             <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>FAQ - Perguntas Frequentes</Text>
-            <View style={styles.subCard}>
-              <Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Como usar cupons?</Text>
-              <Text style={{ fontSize: ds(14) }}>Vá ao local e apresente o QR Code na aba "Meus Cupons".</Text>
-            </View>
-            <View style={styles.subCard}>
-              <Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Esqueci minha senha?</Text>
-              <Text style={{ fontSize: ds(14) }}>Use a opção "Esqueci minha senha" na tela de login.</Text>
-            </View>
+            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Como usar cupons?</Text><Text style={{ fontSize: ds(14) }}>Vá ao local e apresente o QR Code na aba "Meus Cupons".</Text></View>
+            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Esqueci minha senha?</Text><Text style={{ fontSize: ds(14) }}>Use a opção "Esqueci minha senha" na tela de login.</Text></View>
             <Text style={[styles.infoTitle, { fontSize: ds(18), marginTop: 20 }]}>Contato</Text>
-            <MenuButton label="Chat de Suporte" icon="💬" ds={ds} />
-            <MenuButton label="E-mail: suporte@contos.com" icon="📧" ds={ds} />
+            <MenuButton label="Chat de Suporte" icon="💬" ds={ds} /><MenuButton label="E-mail: suporte@contos.com" icon="📧" ds={ds} />
           </View>
         );
       case 'Notificações':
@@ -436,115 +360,49 @@ const SpecificSubPage = ({ title, onBack, notifStates, onEditAddress, accessibil
           </View>
         );
       case 'Meus Pedidos':
-        return (
-          <View>
-            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>#001 - Coffee Livros</Text><Text style={{ fontSize: ds(14) }}>2x Cappuccino - R$ 24,00</Text></View>
-            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>#002 - RocketSushi</Text><Text style={{ fontSize: ds(14) }}>1x Combo 20 Peças - R$ 45,00</Text></View>
-          </View>
-        );
-      case 'Alterar Senha':
-        return (
-          <View>
-            <TextInput placeholder="Senha Atual" style={[styles.inputField, { fontSize: ds(16) }]} secureTextEntry />
-            <TextInput placeholder="Nova Senha" style={[styles.inputField, { fontSize: ds(16) }]} secureTextEntry />
-            <TextInput placeholder="Confirmar" style={[styles.inputField, { fontSize: ds(16) }]} secureTextEntry />
-            <TouchableOpacity style={styles.btnPrimary} onPress={() => alert('Senha alterada!')}>
-              <Text style={[styles.btnText, { fontSize: ds(18) }]}>Salvar</Text>
-            </TouchableOpacity>
-          </View>
-        );
+        return (<View><View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>#001 - Coffee Livros</Text><Text style={{ fontSize: ds(14) }}>2x Cappuccino - R$ 24,00</Text></View></View>);
       case 'Endereço':
-        return (
-          <View>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Endereço Atual:</Text>
-            <Text style={[styles.infoSubText, { fontSize: ds(14) }]}>{userAddress}</Text>
-            <TouchableOpacity style={[styles.btnPrimary, {marginTop: 20}]} onPress={onEditAddress}>
-              <Text style={[styles.btnText, { fontSize: ds(16) }]}>Editar Endereço</Text>
-            </TouchableOpacity>
-          </View>
-        );
+        return (<View><Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Endereço da Conta:</Text><Text style={{ fontSize: ds(16), marginVertical: 15 }}>{userAddress}</Text><TouchableOpacity style={styles.btnPrimary} onPress={onEditAddress}><Text style={styles.btnText}>Editar Endereço</Text></TouchableOpacity></View>);
       default:
-        return (
-          <View style={styles.placeholderBox}>
-            <Text style={styles.placeholderEmoji}>📑</Text>
-            <Text style={[styles.placeholderTitle, { fontSize: ds(24) }]}>{title}</Text>
-            <Text style={[styles.placeholderDesc, { fontSize: ds(14) }]}>Configurações de {title.toLowerCase()} em desenvolvimento.</Text>
-          </View>
-        );
+        return (<View style={styles.placeholderBox}><Text style={styles.placeholderEmoji}>📑</Text><Text style={[styles.placeholderTitle, { fontSize: ds(24) }]}>{title}</Text><Text style={[styles.placeholderDesc, { fontSize: ds(14) }]}>Configurações de {title.toLowerCase()} em desenvolvimento.</Text></View>);
     }
   };
-  return (
-    <SafeAreaView style={styles.container}>
-      <CustomHeader onBack={onBack} title={title} ds={ds} />
-      <ScrollView contentContainerStyle={styles.paddedContent}>{renderContent()}</ScrollView>
-    </SafeAreaView>
-  );
+  return (<SafeAreaView style={styles.container}><CustomHeader onBack={onBack} title={title} ds={ds} /><ScrollView contentContainerStyle={styles.paddedContent}>{renderContent()}</ScrollView></SafeAreaView>);
 };
 
 const EditAddressScreen = ({ onBack, onSave, ds }) => {
-  const [tempAddr, setTempAddr] = useState('');
+  const [rua, setRua] = useState('');
+  const [num, setNum] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [cep, setCep] = useState('');
+
   return (
     <SafeAreaView style={styles.container}>
       <CustomHeader onBack={onBack} title="Alterar Endereço" ds={ds} />
       <ScrollView contentContainerStyle={styles.paddedContent}>
         <Text style={[styles.formSectionTitle, { fontSize: ds(22) }]}>Novo Endereço</Text>
-        <TextInput placeholder="CEP" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" />
-        <TextInput placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} onChangeText={setTempAddr} />
+        <TextInput placeholder="CEP" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" onChangeText={setCep} />
+        <TextInput placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} onChangeText={setRua} />
         <View style={styles.rowInputs}>
-          <TextInput placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" />
-          <TextInput placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} />
+          <TextInput placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" onChangeText={setNum} />
+          <TextInput placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} onChangeText={setBairro} />
         </View>
-        <TextInput placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} />
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => { alert('Endereço atualizado!'); onSave(tempAddr || "Novo Endereço Salvo"); }}>
-          <Text style={[styles.btnText, { fontSize: ds(18) }]}>Salvar Alterações</Text>
+        <TextInput placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} onChangeText={setCidade} />
+        
+        <TouchableOpacity 
+          style={styles.btnPrimary} 
+          onPress={() => { 
+            Alert.alert('Sucesso', 'Endereço atualizado!'); 
+            onSave({ rua, num, bairro, cidade, cep }); 
+          }}
+        >
+          <Text style={[styles.btnText, { fontSize: ds(18) }]}>Salvar em Toda a Conta</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-const StartScreen = ({ onBack, onNext, ds }) => (
-  <SafeAreaView style={[styles.container, { backgroundColor: COLORS.secondary }]}>
-    <CustomHeader onBack={onBack} title="Como funciona?" ds={ds} />
-    <ScrollView contentContainerStyle={styles.paddedContent}>
-      <Text style={[styles.screenTitle, { fontSize: ds(32) }]}>Siga o passo a passo!</Text>
-      <View style={styles.infoStepContainer}>
-        <View style={styles.infoRow}>
-          <View style={styles.stepCircle}><Text style={[styles.stepNumber, { fontSize: ds(16) }]}>1</Text></View>
-          <View style={styles.stepTextContent}>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Explore os Cantos</Text>
-            <Text style={[styles.infoSubText, { fontSize: ds(14) }]}>Navegue pela nossa lista de parceiros e encontre o local ideal para o seu momento.</Text>
-          </View>
-        </View>
-        <View style={styles.infoRow}>
-          <View style={styles.stepCircle}><Text style={[styles.stepNumber, { fontSize: ds(16) }]}>2</Text></View>
-          <View style={styles.stepTextContent}>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Escolha seus Cupons</Text>
-            <Text style={[styles.infoSubText, { fontSize: ds(14) }]}>Cada local oferece vantagens exclusivas. Selecione o cupom que deseja usar e salve no seu perfil.</Text>
-          </View>
-        </View>
-        <View style={styles.infoRow}>
-          <View style={styles.stepCircle}><Text style={[styles.stepNumber, { fontSize: ds(16) }]}>3</Text></View>
-          <View style={styles.stepTextContent}>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Valide no Local</Text>
-            <Text style={[styles.infoSubText, { fontSize: ds(14) }]}>Ao chegar no estabelecimento, abra o app e apresente seu QR Code para validar o benefício na hora.</Text>
-          </View>
-        </View>
-        <View style={styles.infoRow}>
-          <View style={styles.stepCircle}><Text style={[styles.stepNumber, { fontSize: ds(16) }]}>4</Text></View>
-          <View style={styles.stepTextContent}>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Aproveite seu Conto</Text>
-            <Text style={[styles.infoSubText, { fontSize: ds(14) }]}>Agora é só relaxar, ler um bom livro e aproveitar seu café com o desconto garantido!</Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity style={styles.btnPrimary} onPress={onNext}>
-        <Text style={[styles.btnText, { fontSize: ds(18) }]}>Entendi, vamos começar!</Text>
-      </TouchableOpacity>
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  </SafeAreaView>
-);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
@@ -556,7 +414,7 @@ const styles = StyleSheet.create({
   paddedContent: { padding: 25 },
   logoImage: { marginBottom: 40 },
   splashActions: { alignItems: 'center', marginBottom: 30 },
-  splashLinkText: { color: COLORS.white, marginBottom: 10 },
+  splashLinkText: { color: COLORS.white, fontSize: 16, marginBottom: 10 },
   boldUnderline: { fontWeight: 'bold', textDecorationLine: 'underline' },
   splashTitle: { fontWeight: 'bold', textAlign: 'center', color: COLORS.white, marginBottom: 40 },
   screenTitle: { fontWeight: 'bold', color: COLORS.accent, marginBottom: 20 },
@@ -573,10 +431,7 @@ const styles = StyleSheet.create({
   locationCard: { backgroundColor: COLORS.white, borderRadius: 20, overflow: 'hidden', marginBottom: 20, elevation: 4 },
   cardBanner: { height: 100, opacity: 0.8 },
   cardInfo: { padding: 15 },
-  cardPlaceName: { fontWeight: 'bold', color: COLORS.accent },
-  cardPlaceDesc: { color: '#666', marginVertical: 5 },
-  badgeCupom: { backgroundColor: COLORS.secondary, alignSelf: 'flex-start', padding: 5, borderRadius: 5 },
-  badgeText: { fontWeight: 'bold', color: COLORS.accent },
+  cardPlaceName: { fontWeight: 'bold', color: COLORS.accent, fontSize: 18 },
   profileHero: { alignItems: 'center', paddingVertical: 30, backgroundColor: COLORS.sectionBg },
   avatarLarge: { width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: COLORS.primary, overflow: 'hidden' },
   changePhotoBtn: { marginTop: 10, marginBottom: 15, backgroundColor: COLORS.secondary, paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20 },
@@ -597,13 +452,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', marginBottom: 25 },
   stepCircle: { width: 35, height: 35, borderRadius: 17.5, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   stepNumber: { color: COLORS.white, fontWeight: 'bold' },
-  stepTextContent: { flex: 1 },
-  infoTitle: { fontWeight: 'bold', color: COLORS.primary, marginBottom: 5 },
-  infoSubText: { color: '#555' },
-  subCard: { backgroundColor: COLORS.sectionBg, padding: 15, borderRadius: 10, marginBottom: 10 },
-  cardTitle: { fontWeight: 'bold', color: COLORS.accent },
-  notifItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  // ESTILOS DO OLHO
-  passwordInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.sectionBg, borderRadius: 15, paddingRight: 15, borderWidth: 1, borderColor: '#EEE' },
-  eyeButton: { padding: 10 }
+  passwordInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.sectionBg, borderRadius: 15, paddingRight: 15, borderWidth: 1, borderColor: '#EEE', marginBottom: 15 },
+  eyeButton: { padding: 10 },
+  infoTitle: { fontWeight: 'bold', color: COLORS.primary }
 });
