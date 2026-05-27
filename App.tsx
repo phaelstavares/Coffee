@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
+import { supabase } from './supabase'; 
 import { 
   StyleSheet, 
   Text, 
@@ -7,452 +8,299 @@ import {
   Image, 
   TouchableOpacity, 
   SafeAreaView, 
-  ScrollView, 
-  TextInput, 
   FlatList, 
   Dimensions, 
-  Platform, 
-  Switch,
   Alert 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width, height } = Dimensions.get('window');
+import { COLORS } from './theme';
+import LoginScreen from './LoginScreen';
+import ProfileScreen from './ProfileScreen';
 
 const USER_IMAGE = require('./assets/icone-gato.jpg'); 
 
-const COLORS = {
-  primary: '#4A5D45',   
-  secondary: '#F3E5D0', 
-  accent: '#3B0F0F',    
-  logout: '#962121',    
-  white: '#FFFFFF',
-  gray: '#A0A0A0',
-  sectionBg: '#F9F6F2',
-  success: '#28a745',
-  error: '#dc3545'
-};
-
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('splash');
-  const [pageTitle, setPageTitle] = useState(''); 
-  const [fontScale, setFontScale] = useState(1);
-  const [userAddress, setUserAddress] = useState('Rua das Flores, 123 - Centro, SP');
   const [currentUser, setCurrentUser] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [listaCafes, setListaCafes] = useState([]);
 
-  const [notifPush, setNotifPush] = useState(true);
-  const [notifEmail, setNotifEmail] = useState(false);
-  const [notifSms, setNotifSms] = useState(true);
+  // Estados compartilhados de informações do usuário
+  const [nomeUsuario, setNomeUsuario] = useState('');
+  const [rua, setRua] = useState('');
+  const [numero, setNumero] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+  
+  // Estados de feedback de API
+  const [salvando, setSalvando] = useState(false);
+  const [statusCadastro, setStatusCadastro] = useState('ocioso'); // 'ocioso' | 'carregando' | 'sucesso' | 'erro'
+  const [statusLogin, setStatusLogin] = useState('ocioso');      // 'ocioso' | 'carregando' | 'erro'
 
-  // Estados dos Formulários
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [regNome, setRegNome] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPass, setRegPassword] = useState('');
+  // Estados de Configurações
+  const [notificacoesAtivas, setNotificacoesAtivas] = useState(true);
+  const [fontSizeMode, setFontSizeMode] = useState('padrao');
 
-  // Estados de Endereço no Cadastro e Edição[cite: 12]
-  const [regCep, setRegCep] = useState('');
-  const [regRua, setRegRua] = useState('');
-  const [regNum, setRegNum] = useState('');
-  const [regBairro, setRegBairro] = useState('');
-  const [regCidade, setRegCidade] = useState('');
-
-  // Estados de Segurança e Animação
-  const [showLoginPass, setShowLoginPass] = useState(false);
-  const [showRegPass, setShowRegPass] = useState(false);
-  const [statusColor, setStatusColor] = useState(COLORS.primary);
-
-  const navigateToSubPage = (title) => {
-    setPageTitle(title);
-    setCurrentScreen('subpage');
+  const getFontSize = (baseSize) => {
+    if (fontSizeMode === 'media') return baseSize * 1.2;
+    if (fontSizeMode === 'grande') return baseSize * 1.4;
+    return baseSize;
   };
 
-  const ds = (size) => size * fontScale;
-
+  // 🔥 CADASTRO COM LOGIN AUTOMÁTICO IMEDIATO
   const handleSignUp = async () => {
-    if (!regNome || !regEmail || !regPass || !regRua) {
-      setStatusColor(COLORS.error);
-      setTimeout(() => setStatusColor(COLORS.primary), 600);
-      Alert.alert("Erro", "Preencha todos os campos, incluindo o endereço completo.");
+    if (!email.trim() || !password.trim() || !nomeUsuario.trim()) {
+      Alert.alert('Campos Obrigatórios', 'Por favor, preencha Nome, E-mail e Senha para prosseguir.');
       return;
     }
+
+    setStatusCadastro('carregando');
+
     try {
-      const fullAddr = `${regRua}, ${regNum} - ${regBairro}, ${regCidade}`;
-      const userData = { nome: regNome, email: regEmail, senha: regPass, endereco: fullAddr };
-      await AsyncStorage.setItem(`@user_${regEmail}`, JSON.stringify(userData));
-      setStatusColor(COLORS.success);
-      setTimeout(() => {
-        setStatusColor(COLORS.primary);
-        Alert.alert("Sucesso", "Conta criada com sucesso! Faça seu login.");
-        setCurrentScreen('login');
-      }, 600);
-    } catch (e) {
-      Alert.alert("Erro", "Falha ao salvar dados.");
+      // 1. Cria a conta no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData?.user) {
+        // 2. Insere os dados adicionais de endereço na tabela 'perfis'
+        const { error: profileError } = await supabase
+          .from('perfis')
+          .insert({
+            id: authData.user.id,
+            nome_usuario: nomeUsuario,
+            rua: rua,
+            numero: numero,
+            bairro: bairro,
+            cidade: cidade
+          });
+
+        if (profileError) throw profileError;
+
+        setStatusCadastro('sucesso');
+        
+        // 3. MÁGICA DO LOGIN AUTOMÁTICO: Seta o estado local de sessão e pula pra Home direto!
+        setCurrentUser({ 
+          id: authData.user.id, 
+          email: authData.user.email, 
+          avatar: USER_IMAGE 
+        });
+
+        Alert.alert('Conta Criada! 🎉', `Bem-vindo ao Coffee Shop, ${nomeUsuario}!`);
+        setCurrentScreen('home');
+      }
+    } catch (error) {
+      setStatusCadastro('erro');
+      Alert.alert('Erro no Cadastro ❌', error.message);
+      // Reseta o status após o alerta para o botão voltar a ficar normal
+      setTimeout(() => setStatusCadastro('ocioso'), 3000);
     }
   };
 
   const handleLogin = async () => {
-    if (!loginEmail || !loginPassword) {
-      setStatusColor(COLORS.error);
-      setTimeout(() => setStatusColor(COLORS.primary), 600);
-      Alert.alert("Aviso", "Preencha e-mail e senha.");
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha e-mail e senha.');
       return;
     }
+    
+    setStatusLogin('carregando');
+
     try {
-      const jsonValue = await AsyncStorage.getItem(`@user_${loginEmail}`);
-      const user = jsonValue != null ? JSON.parse(jsonValue) : null;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
-      if (user) {
-        if (user.senha === loginPassword) {
-          setStatusColor(COLORS.success);
-          setTimeout(() => {
-            setStatusColor(COLORS.primary);
-            setCurrentUser(user);
-            setUserAddress(user.endereco);
-            setCurrentScreen('home');
-          }, 600);
-        } else {
-          setStatusColor(COLORS.error);
-          setTimeout(() => setStatusColor(COLORS.primary), 600);
-          Alert.alert("Erro de Login", "Senha incorreta.");
-        }
-      } else {
-        setStatusColor(COLORS.error);
-        setTimeout(() => setStatusColor(COLORS.primary), 600);
-        Alert.alert("Erro de Login", "E-mail não cadastrado.");
-      }
-    } catch (e) {
-      Alert.alert("Erro", "Falha na verificação.");
-    }
-  };
-
-  const handleUpdateAddress = async (newAddrObj) => {
-    try {
-      const fullAddr = `${newAddrObj.rua}, ${newAddrObj.num} - ${newAddrObj.bairro}, ${newAddrObj.cidade}`;
-      setUserAddress(fullAddr);
-      const updatedUser = { ...currentUser, endereco: fullAddr };
-      await AsyncStorage.setItem(`@user_${currentUser.email}`, JSON.stringify(updatedUser));
-      setCurrentUser(updatedUser);
-      setCurrentScreen('subpage');
-    } catch (e) {
-      Alert.alert("Erro", "Não foi possível atualizar.");
-    }
-  };
-
-  const renderScreen = () => {
-    if (!currentUser) {
-      switch (currentScreen) {
-        case 'login': 
-          return <LoginScreen email={loginEmail} setEmail={setLoginEmail} pass={loginPassword} setPass={setLoginPassword} showPass={showLoginPass} setShowPass={setShowLoginPass} btnColor={statusColor} onBack={() => setCurrentScreen('splash')} onEnter={handleLogin} onForgot={() => setCurrentScreen('forgot')} ds={ds} />;
-        case 'signup': 
-          return <SignUpScreen nome={regNome} setNome={setRegNome} email={regEmail} setEmail={setRegEmail} pass={regPass} setPass={setRegPassword} showPass={showRegPass} setShowPass={setShowRegPass} cep={regCep} setCep={setRegCep} rua={regRua} setRua={setRegRua} num={regNum} setNum={setRegNum} bairro={regBairro} setBairro={setRegBairro} cidade={regCidade} setCidade={setRegCidade} btnColor={statusColor} onBack={() => setCurrentScreen('splash')} onComplete={handleSignUp} ds={ds} />;
-        case 'forgot': 
-          return <ForgotScreen onBack={() => setCurrentScreen('login')} ds={ds} />;
-        default: 
-          return <SplashScreen onLogin={() => setCurrentScreen('login')} onSignUp={() => setCurrentScreen('signup')} ds={ds} />;
-      }
-    }
-
-    switch (currentScreen) {
-      case 'home': 
-        return <HomeScreen userName={currentUser.nome} onProfile={() => setCurrentScreen('profile')} ds={ds} userAddress={userAddress} onAddressClick={() => navigateToSubPage('Endereço')} />;
-      case 'profile': 
-        return <ProfileScreen userName={currentUser.nome} onBack={() => setCurrentScreen('home')} onLogout={() => {setCurrentUser(null); setCurrentScreen('splash');}} onNavigate={navigateToSubPage} ds={ds} />;
-      case 'editAddress': 
-        return <EditAddressScreen onBack={() => setCurrentScreen('subpage')} onSave={handleUpdateAddress} ds={ds} />;
-      case 'subpage': 
-        return <SpecificSubPage title={pageTitle} onBack={() => setCurrentScreen('profile')} onEditAddress={() => setCurrentScreen('editAddress')} notifStates={{ notifPush, setNotifPush, notifEmail, setNotifEmail, notifSms, setNotifSms }} accessibility={{ fontScale, setFontScale }} ds={ds} userAddress={userAddress} />;
-      default: 
-        return <HomeScreen userName={currentUser.nome} onProfile={() => setCurrentScreen('profile')} ds={ds} userAddress={userAddress} onAddressClick={() => navigateToSubPage('Endereço')} />;
-    }
-  };
-
-  return (
-    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
-      <StatusBar style="auto" />
-      {renderScreen()}
-    </View>
-  );
-}
-
-const CustomHeader = ({ onBack, title, ds }) => (
-  <View style={styles.headerContainer}>
-    <TouchableOpacity style={styles.backButton} onPress={onBack}><Text style={[styles.backIcon, { fontSize: ds(18) }]}>✕</Text></TouchableOpacity>
-    {title && <Text style={[styles.headerTitleText, { fontSize: ds(18) }]}>{title}</Text>}
-  </View>
-);
-
-const ProfileSection = ({ title, children, ds }) => (
-  <View style={styles.sectionWrapper}><Text style={[styles.sectionLabel, { fontSize: ds(12) }]}>{title}</Text><View style={styles.sectionCard}>{children}</View></View>
-);
-
-const MenuButton = ({ label, icon, onPress, color = COLORS.primary, ds }) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <View style={styles.menuIconWrapper}><Text style={[styles.menuIcon, { fontSize: ds(18) }]}>{icon}</Text></View>
-    <Text style={[styles.menuText, { color: color, fontSize: ds(16) }]}>{label}</Text>
-    <Text style={[styles.arrowIcon, { fontSize: ds(20) }]}>›</Text>
-  </TouchableOpacity>
-);
-
-const SplashScreen = ({ onLogin, onSignUp, ds }) => (
-  <SafeAreaView style={[styles.container, { backgroundColor: COLORS.primary }]}>
-    <ScrollView contentContainerStyle={styles.scrollCenter} bounces={false}>
-      <Image source={require('./assets/icone-app.png')} style={[styles.logoImage, { width: width * 0.7, height: width * 0.7 * 0.6 }]} resizeMode="contain" />
-      <View style={styles.splashActions}>
-        <TouchableOpacity onPress={onLogin}><Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Já é Cadastrado? <Text style={styles.boldUnderline}>Login</Text></Text></TouchableOpacity>
-        <TouchableOpacity onPress={onSignUp}><Text style={[styles.splashLinkText, { fontSize: ds(16) }]}>Não tem conta? <Text style={styles.boldUnderline}>Cadastre-se</Text></Text></TouchableOpacity>
-      </View>
-      <Text style={[styles.splashTitle, { fontSize: ds(24) }]}>Acesse para reservar seu canto</Text>
-      <TouchableOpacity style={styles.btnAcent} onPress={onLogin}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Começar Agora</Text></TouchableOpacity>
-    </ScrollView>
-  </SafeAreaView>
-);
-
-const LoginScreen = ({ email, setEmail, pass, setPass, showPass, setShowPass, btnColor, onBack, onEnter, onForgot, ds }) => (
-  <SafeAreaView style={styles.container}>
-    <CustomHeader onBack={onBack} title="Login" ds={ds} />
-    <View style={styles.paddedContent}>
-      <Text style={[styles.screenTitle, { fontSize: ds(32) }]}>Bem-vindo!</Text>
-      <TextInput value={email} onChangeText={setEmail} placeholder="Seu e-mail" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="email-address" autoCapitalize="none" />
-      <View style={styles.passwordInputWrapper}>
-        <TextInput value={pass} onChangeText={setPass} placeholder="Sua senha" style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} secureTextEntry={!showPass} />
-        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}><Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text></TouchableOpacity>
-      </View>
-      <TouchableOpacity onPress={onForgot} style={{ alignSelf: 'flex-end', marginVertical: 20 }}><Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: ds(14) }}>Esqueci minha senha</Text></TouchableOpacity>
-      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onEnter}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Entrar</Text></TouchableOpacity>
-    </View>
-  </SafeAreaView>
-);
-
-const ForgotScreen = ({ onBack, ds }) => (
-  <SafeAreaView style={styles.container}>
-    <CustomHeader onBack={onBack} title="Recuperar Senha" ds={ds} />
-    <View style={styles.paddedContent}>
-      <Text style={[styles.screenTitle, { fontSize: ds(32) }]}>Trocar Senha</Text>
-      <Text style={{ color: '#666', marginBottom: 20, fontSize: ds(14) }}>Enviaremos um link para o seu e-mail para realizar a troca da senha.</Text>
-      <TextInput placeholder="E-mail cadastrado" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="email-address" />
-      <TouchableOpacity style={styles.btnPrimary} onPress={() => alert('E-mail enviado!')}>
-        <Text style={[styles.btnText, { fontSize: ds(18) }]}>Enviar E-mail</Text>
-      </TouchableOpacity>
-    </View>
-  </SafeAreaView>
-);
-
-const SignUpScreen = ({ nome, setNome, email, setEmail, pass, setPass, showPass, setShowPass, btnColor, onBack, onComplete, ds, cep, setCep, rua, setRua, num, setNum, bairro, setBairro, cidade, setCidade }) => (
-  <SafeAreaView style={styles.container}>
-    <CustomHeader onBack={onBack} title="Criar Conta" ds={ds} />
-    <ScrollView contentContainerStyle={styles.paddedContent}>
-      <Text style={[styles.formSectionTitle, { fontSize: ds(22) }]}>Dados Pessoais</Text>
-      <TextInput value={nome} onChangeText={setNome} placeholder="Nome Completo" style={[styles.inputField, { fontSize: ds(16) }]} />
-      <TextInput value={email} onChangeText={setEmail} placeholder="E-mail" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="email-address" autoCapitalize="none" />
-      <View style={[styles.passwordInputWrapper, { marginBottom: 15 }]}>
-        <TextInput value={pass} onChangeText={setPass} placeholder="Senha" style={[styles.inputField, { fontSize: ds(16), flex: 1, marginBottom: 0 }]} secureTextEntry={!showPass} />
-        <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPass(!showPass)}><Text style={{ fontSize: 20 }}>{showPass ? '🙈' : '👁️'}</Text></TouchableOpacity>
-      </View>
+      setCurrentUser({ 
+        id: data.user.id, 
+        email: data.user.email, 
+        avatar: USER_IMAGE 
+      });
       
-      <Text style={[styles.formSectionTitle, { marginTop: 20, fontSize: ds(22) }]}>Endereço[cite: 12]</Text>
-      <TextInput value={cep} onChangeText={setCep} placeholder="CEP (00000-000)" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" />
-      <TextInput value={rua} onChangeText={setRua} placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} />
-      <View style={styles.rowInputs}>
-        <TextInput value={num} onChangeText={setNum} placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" />
-        <TextInput value={bairro} onChangeText={setBairro} placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} />
-      </View>
-      <TextInput value={cidade} onChangeText={setCidade} placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} />
+      await buscarPerfilExistente(data.user.id);
+      setStatusLogin('ocioso');
+      setCurrentScreen('home');
 
-      <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: btnColor }]} onPress={onComplete}><Text style={[styles.btnText, { fontSize: ds(18) }]}>Finalizar Cadastro</Text></TouchableOpacity>
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  </SafeAreaView>
-);
+    } catch (error) {
+      setStatusLogin('erro');
+      Alert.alert('Erro no Login ❌', 'E-mail ou senha incorretos.');
+      setTimeout(() => setStatusLogin('ocioso'), 3000);
+    }
+  };
 
-const HomeScreen = ({ onProfile, ds, userAddress, onAddressClick, userName }) => {
-  const LOCAIS = [
-    { id: '1', nome: 'Coffee Livros', desc: '15% de desconto em combos.', cupons: 3, cor: '#D2B48C' },
-    { id: '2', nome: 'RocketSteak', desc: '20% de desconto na parrilla.', cupons: 1, cor: '#8B4513' },
-    { id: '3', nome: 'RocketSushi', desc: '15% de desconto no buffet.', cupons: 2, cor: '#2F4F4F' },
-    { id: '4', nome: 'RocketBrunch', desc: '50% no segundo brunch.', cupons: 5, cor: '#E9967A' },
-    { id: '5', nome: 'Esquina Criativa', desc: 'Combo em dobro no SuperRocket.', cupons: 3, cor: '#556B2F' },
-  ];
-  return (
-    <View style={styles.container}>
-      <View style={styles.homeHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.homeHeaderText, { fontSize: ds(22) }]}>Olá, {userName}!</Text>
-          <TouchableOpacity onPress={onAddressClick}><Text style={{ color: COLORS.secondary, fontSize: ds(12), marginTop: 4 }} numberOfLines={1}>📍 {userAddress}</Text></TouchableOpacity>
-        </View>
-        <TouchableOpacity onPress={onProfile} style={styles.profileCircleSmall}><Image source={USER_IMAGE} style={{ width: ds(45), height: ds(45), borderRadius: ds(22.5) }} /></TouchableOpacity>
-      </View>
-      <View style={styles.homeBody}>
-        <FlatList data={LOCAIS} keyExtractor={item => item.id} showsVerticalScrollIndicator={false} renderItem={({ item }) => (
-          <TouchableOpacity style={styles.locationCard}>
-            <View style={[styles.cardBanner, { backgroundColor: item.cor }]} />
-            <View style={styles.cardInfo}>
-              <Text style={[styles.cardPlaceName, { fontSize: ds(18) }]}>{item.nome}</Text>
-              <Text style={[styles.cardPlaceDesc, { fontSize: ds(13) }]}>{item.desc}</Text>
-              <View style={styles.badgeCupom}><Text style={[styles.badgeText, { fontSize: ds(11) }]}>🎫 {item.cupons} cupons</Text></View>
-            </View>
-          </TouchableOpacity>
-        )} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} />
+  const buscarPerfilExistente = async (userId) => {
+    const { data } = await supabase
+      .from('perfis')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (data) {
+      if (data.nome_usuario) setNomeUsuario(data.nome_usuario);
+      if (data.rua) setRua(data.rua);
+      if (data.numero) setNumero(data.numero);
+      if (data.bairro) setBairro(data.bairro);
+      if (data.cidade) setCidade(data.cidade);
+    }
+  };
+
+  const handleSalvarPerfil = async () => {
+    if (!nomeUsuario.trim()) {
+      Alert.alert('Erro', 'O nome não pode ficar vazio.');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const { error } = await supabase
+        .from('perfis')
+        .upsert({ 
+          id: currentUser.id,
+          nome_usuario: nomeUsuario,
+          rua, numero, bairro, cidade
+        });
+
+      if (error) throw error;
+      Alert.alert('Sucesso', 'Perfil atualizado!');
+      setCurrentScreen('home');
+    } catch (err) {
+      Alert.alert('Erro ao Salvar', err.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const carregarCafesDoBanco = async () => {
+    const { data } = await supabase.from('produtos').select('*');
+    if (data) setListaCafes(data);
+  };
+
+  useEffect(() => {
+    if (currentScreen === 'splash') {
+      const timer = setTimeout(() => setCurrentScreen('login'), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen]);
+
+  useEffect(() => {
+    if (currentScreen === 'home') carregarCafesDoBanco();
+  }, [currentScreen]);
+
+  const obterEnderecoFormatado = () => {
+    if (!rua) return '';
+    return `${rua}${numero ? ', ' + numero : ''}${bairro ? ' - ' + bairro : ''}`;
+  };
+
+  const renderProductItem = ({ item }) => (
+    <View style={styles.productCard}>
+      <View style={styles.productImagePlaceholder}><Text style={{ fontSize: 36 }}>☕</Text></View>
+      <View style={styles.productInfo}>
+        <Text style={[styles.productName, { fontSize: getFontSize(16) }]}>{item.nome}</Text>
+        <Text style={[styles.productPrice, { fontSize: getFontSize(15) }]}>R$ {parseFloat(item.preco || 0).toFixed(2)}</Text>
+        <Text style={[styles.productDesc, { fontSize: getFontSize(12) }]} numberOfLines={2}>{item.descricao}</Text>
       </View>
     </View>
   );
-};
 
-const ProfileScreen = ({ userName, onBack, onLogout, onNavigate, ds }) => (
-  <SafeAreaView style={styles.container}>
-    <CustomHeader onBack={onBack} title="Meu Perfil" ds={ds} />
-    <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.profileHero}>
-        <View style={styles.avatarLarge}><Image source={USER_IMAGE} style={{ width: ds(120), height: ds(120), borderRadius: ds(60) }} /></View>
-        <TouchableOpacity style={styles.changePhotoBtn} onPress={() => alert('Simulação')}><Text style={[styles.changePhotoText, { fontSize: ds(14) }]}>📸 Alterar Foto</Text></TouchableOpacity>
-        <Text style={[styles.profileName, { fontSize: ds(24) }]}>{userName}</Text>
+  if (currentScreen === 'splash') {
+    return (
+      <View style={[styles.container, styles.splashContainer]}>
+        <StatusBar style="light" />
+        <Text style={styles.logoText}>COFFEE</Text>
+        <Text style={styles.tagline}>O melhor grão na sua mão</Text>
       </View>
-      <ProfileSection title="Atividade e Pedidos" ds={ds}>
-        <MenuButton label="Meus Pedidos" icon="🛍️" onPress={() => onNavigate('Meus Pedidos')} ds={ds} />
-        <MenuButton label="Meus Cupons" icon="🎫" onPress={() => onNavigate('Meus Cupons')} ds={ds} />
-      </ProfileSection>
-      <ProfileSection title="Endereço" ds={ds}><MenuButton label="Endereço Cadastrado" icon="🏠" onPress={() => onNavigate('Endereço')} ds={ds} /></ProfileSection>
-      <ProfileSection title="Segurança" ds={ds}><MenuButton label="Alterar Senha" icon="🔑" onPress={() => onNavigate('Alterar Senha')} ds={ds} /><MenuButton label="Segurança da Conta" icon="🛡️" onPress={() => onNavigate('Segurança')} ds={ds} /></ProfileSection>
-      <ProfileSection title="Suporte e Configurações" ds={ds}>
-        <MenuButton label="Notificações" icon="🔔" onPress={() => onNavigate('Notificações')} ds={ds} />
-        <MenuButton label="Acessibilidade" icon="♿" onPress={() => onNavigate('Acessibilidade')} ds={ds} />
-        <MenuButton label="Ajuda" icon="❓" onPress={() => onNavigate('Ajuda')} ds={ds} />
-        <MenuButton label="Sair da Conta" icon="🚪" color={COLORS.logout} onPress={onLogout} ds={ds} />
-      </ProfileSection>
-      <View style={{ height: 60 }} />
-    </ScrollView>
-  </SafeAreaView>
-);
+    );
+  }
 
-const SpecificSubPage = ({ title, onBack, notifStates, accessibility, ds, userAddress, onEditAddress }) => {
-  const renderContent = () => {
-    switch (title) {
-      case 'Acessibilidade':
-        return (
-          <View>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Tamanho da Fonte</Text>
-            <Text style={{ fontSize: ds(14), color: '#666', marginBottom: 20 }}>Ajuste a escala das letras para todo o app.</Text>
-            <View style={styles.rowInputs}>
-              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.max(0.8, accessibility.fontScale - 0.1))}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Diminuir -</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.btnPrimary, { width: '45%' }]} onPress={() => accessibility.setFontScale(Math.min(1.5, accessibility.fontScale + 0.1))}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Aumentar +</Text></TouchableOpacity>
-            </View>
-            <TouchableOpacity style={[styles.btnAcent, { marginTop: 20 }]} onPress={() => accessibility.setFontScale(1)}><Text style={[styles.btnText, { fontSize: ds(16) }]}>Resetar Padrão</Text></TouchableOpacity>
-          </View>
-        );
-      case 'Ajuda':
-        return (
-          <View>
-            <Text style={[styles.infoTitle, { fontSize: ds(18) }]}>FAQ - Perguntas Frequentes</Text>
-            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Como usar cupons?</Text><Text style={{ fontSize: ds(14) }}>Vá ao local e apresente o QR Code na aba "Meus Cupons".</Text></View>
-            <View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>Esqueci minha senha?</Text><Text style={{ fontSize: ds(14) }}>Use a opção "Esqueci minha senha" na tela de login.</Text></View>
-            <Text style={[styles.infoTitle, { fontSize: ds(18), marginTop: 20 }]}>Contato</Text>
-            <MenuButton label="Chat de Suporte" icon="💬" ds={ds} /><MenuButton label="E-mail: suporte@contos.com" icon="📧" ds={ds} />
-          </View>
-        );
-      case 'Notificações':
-        return (
-          <View>
-            <View style={styles.notifItem}><Text style={[styles.menuText, { fontSize: ds(16) }]}>Push</Text><Switch value={notifStates.notifPush} onValueChange={notifStates.setNotifPush} /></View>
-            <View style={styles.notifItem}><Text style={[styles.menuText, { fontSize: ds(16) }]}>E-mail</Text><Switch value={notifStates.notifEmail} onValueChange={notifStates.setNotifEmail} /></View>
-            <View style={styles.notifItem}><Text style={[styles.menuText, { fontSize: ds(16) }]}>SMS</Text><Switch value={notifStates.notifSms} onValueChange={notifStates.setNotifSms} /></View>
-          </View>
-        );
-      case 'Meus Pedidos':
-        return (<View><View style={styles.subCard}><Text style={[styles.cardTitle, { fontSize: ds(16) }]}>#001 - Coffee Livros</Text><Text style={{ fontSize: ds(14) }}>2x Cappuccino - R$ 24,00</Text></View></View>);
-      case 'Endereço':
-        return (<View><Text style={[styles.infoTitle, { fontSize: ds(18) }]}>Endereço da Conta:</Text><Text style={{ fontSize: ds(16), marginVertical: 15 }}>{userAddress}</Text><TouchableOpacity style={styles.btnPrimary} onPress={onEditAddress}><Text style={styles.btnText}>Editar Endereço</Text></TouchableOpacity></View>);
-      default:
-        return (<View style={styles.placeholderBox}><Text style={styles.placeholderEmoji}>📑</Text><Text style={[styles.placeholderTitle, { fontSize: ds(24) }]}>{title}</Text><Text style={[styles.placeholderDesc, { fontSize: ds(14) }]}>Configurações de {title.toLowerCase()} em desenvolvimento.</Text></View>);
-    }
-  };
-  return (<SafeAreaView style={styles.container}><CustomHeader onBack={onBack} title={title} ds={ds} /><ScrollView contentContainerStyle={styles.paddedContent}>{renderContent()}</ScrollView></SafeAreaView>);
-};
+  if (currentScreen === 'login') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
+        <LoginScreen 
+          email={email} setEmail={setEmail}
+          password={password} setPassword={setPassword}
+          showPassword={showPassword} setShowPassword={setShowPassword}
+          nomeUsuario={nomeUsuario} setNomeUsuario={setNomeUsuario}
+          rua={rua} setRua={setRua}
+          numero={numero} setNumero={setNumero}
+          bairro={bairro} setBairro={setBairro}
+          cidade={cidade} setCidade={setCidade}
+          handleLogin={handleLogin} handleSignUp={handleSignUp}
+          statusCadastro={statusCadastro}
+          statusLogin={statusLogin}
+        />
+      </SafeAreaView>
+    );
+  }
 
-const EditAddressScreen = ({ onBack, onSave, ds }) => {
-  const [rua, setRua] = useState('');
-  const [num, setNum] = useState('');
-  const [bairro, setBairro] = useState('');
-  const [cidade, setCidade] = useState('');
-  const [cep, setCep] = useState('');
+  if (currentScreen === 'profile') {
+    return (
+      <ProfileScreen 
+        currentUser={currentUser} nomeUsuario={nomeUsuario} setNomeUsuario={setNomeUsuario}
+        rua={rua} setRua={setRua} numero={numero} setNumero={setNumero}
+        bairro={bairro} setBairro={setBairro} city={cidade} setCidade={setCidade}
+        notificacoesAtivas={notificacoesAtivas} setNotificacoesAtivas={setNotificacoesAtivas}
+        fontSizeMode={fontSizeMode} setFontSizeMode={setFontSizeMode} getFontSize={getFontSize}
+        handleSalvarPerfil={handleSalvarPerfil} onVoltar={() => setCurrentScreen('home')}
+        salvando={salvando}
+        handleLogout={() => { setCurrentUser(null); setCurrentScreen('login'); }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader onBack={onBack} title="Alterar Endereço" ds={ds} />
-      <ScrollView contentContainerStyle={styles.paddedContent}>
-        <Text style={[styles.formSectionTitle, { fontSize: ds(22) }]}>Novo Endereço</Text>
-        <TextInput placeholder="CEP" style={[styles.inputField, { fontSize: ds(16) }]} keyboardType="numeric" onChangeText={setCep} />
-        <TextInput placeholder="Rua / Avenida" style={[styles.inputField, { fontSize: ds(16) }]} onChangeText={setRua} />
-        <View style={styles.rowInputs}>
-          <TextInput placeholder="Nº" style={[styles.inputField, { width: '30%', fontSize: ds(16) }]} keyboardType="numeric" onChangeText={setNum} />
-          <TextInput placeholder="Bairro" style={[styles.inputField, { width: '65%', fontSize: ds(16) }]} onChangeText={setBairro} />
+      <StatusBar style="dark" />
+      <View style={styles.header}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={[styles.headerTitle, { fontSize: getFontSize(22) }]}>Coffee Shop</Text>
+          {obterEnderecoFormatado() ? (
+            <Text style={[styles.deliveryBadge, { fontSize: getFontSize(12) }]} numberOfLines={1}>📍 Entregar em: {obterEnderecoFormatado()}</Text>
+          ) : (
+            <Text style={[styles.deliveryBadge, { color: '#C97A7A', fontSize: getFontSize(12) }]}>📍 Sem endereço cadastrado</Text>
+          )}
         </View>
-        <TextInput placeholder="Cidade" style={[styles.inputField, { fontSize: ds(16) }]} onChangeText={setCidade} />
-        
-        <TouchableOpacity 
-          style={styles.btnPrimary} 
-          onPress={() => { 
-            Alert.alert('Sucesso', 'Endereço atualizado!'); 
-            onSave({ rua, num, bairro, cidade, cep }); 
-          }}
-        >
-          <Text style={[styles.btnText, { fontSize: ds(18) }]}>Salvar em Toda a Conta</Text>
+        <TouchableOpacity onPress={() => setCurrentScreen('profile')}>
+          <Image source={USER_IMAGE} style={styles.headerAvatar} />
         </TouchableOpacity>
-      </ScrollView>
+      </View>
+      
+      <FlatList
+        data={listaCafes}
+        renderItem={renderProductItem}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+        ListHeaderComponent={() => (
+          <View style={styles.heroSection}>
+            <Text style={[styles.heroTitle, { fontSize: getFontSize(26) }]}>Olá, {nomeUsuario || 'Cliente'}!</Text>
+            <Text style={[styles.heroSubtitle, { fontSize: getFontSize(15) }]}>Qual café combina com hoje?</Text>
+            <Text style={[styles.sectionLabel, { fontSize: getFontSize(18), marginBottom: 15 }]}>Cardápio do Dia</Text>
+          </View>
+        )}
+      />
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  headerContainer: { height: 70, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', marginTop: Platform.OS === 'android' ? 35 : 0 },
-  headerTitleText: { flex: 1, textAlign: 'center', fontWeight: 'bold', color: COLORS.accent, marginRight: 40 },
-  backButton: { width: 45, height: 45, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 22.5 },
-  backIcon: { fontWeight: 'bold' },
-  scrollCenter: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30, paddingVertical: 40 },
-  paddedContent: { padding: 25 },
-  logoImage: { marginBottom: 40 },
-  splashActions: { alignItems: 'center', marginBottom: 30 },
-  splashLinkText: { color: COLORS.white, fontSize: 16, marginBottom: 10 },
-  boldUnderline: { fontWeight: 'bold', textDecorationLine: 'underline' },
-  splashTitle: { fontWeight: 'bold', textAlign: 'center', color: COLORS.white, marginBottom: 40 },
-  screenTitle: { fontWeight: 'bold', color: COLORS.accent, marginBottom: 20 },
-  formSectionTitle: { fontWeight: 'bold', color: COLORS.primary, marginBottom: 15 },
-  inputField: { backgroundColor: COLORS.sectionBg, padding: 18, borderRadius: 15, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: '#000' },
-  rowInputs: { flexDirection: 'row', justifyContent: 'space-between' },
-  btnPrimary: { backgroundColor: COLORS.primary, padding: 18, borderRadius: 12, alignItems: 'center', width: '100%' },
-  btnAcent: { backgroundColor: COLORS.accent, padding: 18, borderRadius: 12, width: '100%', alignItems: 'center' },
-  btnText: { color: COLORS.white, fontWeight: 'bold' },
-  homeHeader: { height: 130, backgroundColor: COLORS.primary, paddingHorizontal: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 30 },
-  homeHeaderText: { color: COLORS.white, fontWeight: 'bold' },
-  profileCircleSmall: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  homeBody: { flex: 1, backgroundColor: COLORS.secondary, borderTopLeftRadius: 40, marginTop: -20 },
-  locationCard: { backgroundColor: COLORS.white, borderRadius: 20, overflow: 'hidden', marginBottom: 20, elevation: 4 },
-  cardBanner: { height: 100, opacity: 0.8 },
-  cardInfo: { padding: 15 },
-  cardPlaceName: { fontWeight: 'bold', color: COLORS.accent, fontSize: 18 },
-  profileHero: { alignItems: 'center', paddingVertical: 30, backgroundColor: COLORS.sectionBg },
-  avatarLarge: { width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: COLORS.primary, overflow: 'hidden' },
-  changePhotoBtn: { marginTop: 10, marginBottom: 15, backgroundColor: COLORS.secondary, paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20 },
-  changePhotoText: { color: COLORS.accent, fontWeight: 'bold' },
-  profileName: { fontWeight: 'bold', marginTop: 10 },
-  sectionWrapper: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionLabel: { fontWeight: 'bold', color: COLORS.gray, marginBottom: 8, textTransform: 'uppercase' },
-  sectionCard: { backgroundColor: COLORS.sectionBg, borderRadius: 15, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  menuIconWrapper: { width: 30 },
-  menuText: { flex: 1, fontWeight: '500' },
-  arrowIcon: { color: COLORS.gray },
-  placeholderBox: { alignItems: 'center', marginVertical: 60 },
-  placeholderEmoji: { fontSize: 80, marginBottom: 20 },
-  placeholderTitle: { fontWeight: 'bold', color: COLORS.accent },
-  placeholderDesc: { textAlign: 'center', color: '#666', marginTop: 10 },
-  infoStepContainer: { marginBottom: 30 },
-  infoRow: { flexDirection: 'row', marginBottom: 25 },
-  stepCircle: { width: 35, height: 35, borderRadius: 17.5, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  stepNumber: { color: COLORS.white, fontWeight: 'bold' },
-  passwordInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.sectionBg, borderRadius: 15, paddingRight: 15, borderWidth: 1, borderColor: '#EEE', marginBottom: 15 },
-  eyeButton: { padding: 10 },
-  infoTitle: { fontWeight: 'bold', color: COLORS.primary }
+  splashContainer: { backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center' },
+  logoText: { fontSize: 48, fontWeight: 'bold', color: COLORS.secondary, letterSpacing: 5 },
+  tagline: { color: COLORS.white, marginTop: 10, opacity: 0.8 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray },
+  headerTitle: { fontWeight: 'bold', color: COLORS.accent },
+  deliveryBadge: { color: COLORS.primary, marginTop: 2 },
+  headerAvatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: COLORS.secondary },
+  heroSection: { paddingTop: 20 },
+  heroTitle: { fontWeight: 'bold', color: COLORS.accent },
+  heroSubtitle: { color: COLORS.gray, marginTop: 4, marginBottom: 25 },
+  productCard: { flexDirection: 'row', backgroundColor: COLORS.sectionBg, padding: 15, borderRadius: 16, marginBottom: 15 },
+  productImagePlaceholder: { width: 75, height: 75, backgroundColor: COLORS.secondary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  productInfo: { flex: 1, marginLeft: 15, justifyContent: 'center' },
+  productName: { fontWeight: 'bold', color: COLORS.accent },
+  productPrice: { color: COLORS.primary, fontWeight: 'bold', marginVertical: 3 },
+  productDesc: { color: COLORS.gray, lineHeight: 16 }
 });
