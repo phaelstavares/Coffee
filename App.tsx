@@ -50,7 +50,7 @@ export default function App() {
     return baseSize;
   };
 
-  // 🔥 CADASTRO COM LOGIN AUTOMÁTICO IMEDIATO
+  // CADASTRO COM LOGIN AUTOMÁTICO IMEDIATO
   const handleSignUp = async () => {
     if (!email.trim() || !password.trim() || !nomeUsuario.trim()) {
       Alert.alert('Campos Obrigatórios', 'Por favor, preencha Nome, E-mail e Senha para prosseguir.');
@@ -85,7 +85,7 @@ export default function App() {
 
         setStatusCadastro('sucesso');
         
-        // 3. MÁGICA DO LOGIN AUTOMÁTICO: Seta o estado local de sessão e pula pra Home direto!
+        // 3. LOGIN AUTOMÁTICO: Seta o estado local de sessão e pula pra Home direto
         setCurrentUser({ 
           id: authData.user.id, 
           email: authData.user.email, 
@@ -98,7 +98,6 @@ export default function App() {
     } catch (error) {
       setStatusCadastro('erro');
       Alert.alert('Erro no Cadastro ❌', error.message);
-      // Reseta o status após o alerta para o botão voltar a ficar normal
       setTimeout(() => setStatusCadastro('ocioso'), 3000);
     }
   };
@@ -241,7 +240,7 @@ export default function App() {
       <ProfileScreen 
         currentUser={currentUser} nomeUsuario={nomeUsuario} setNomeUsuario={setNomeUsuario}
         rua={rua} setRua={setRua} numero={numero} setNumero={setNumero}
-        bairro={bairro} setBairro={setBairro} city={cidade} setCidade={setCidade}
+        bairro={bairro} setBairro={setBairro} cidade={cidade} setCidade={setCidade}
         notificacoesAtivas={notificacoesAtivas} setNotificacoesAtivas={setNotificacoesAtivas}
         fontSizeMode={fontSizeMode} setFontSizeMode={setFontSizeMode} getFontSize={getFontSize}
         handleSalvarPerfil={handleSalvarPerfil} onVoltar={() => setCurrentScreen('home')}
@@ -257,8 +256,9 @@ export default function App() {
       <View style={styles.header}>
         <View style={{ flex: 1, marginRight: 10 }}>
           <Text style={[styles.headerTitle, { fontSize: getFontSize(22) }]}>Coffee Shop</Text>
+          {/* Removido o texto "Entregar em" mantendo o formato limpo */}
           {obterEnderecoFormatado() ? (
-            <Text style={[styles.deliveryBadge, { fontSize: getFontSize(12) }]} numberOfLines={1}>📍 Entregar em: {obterEnderecoFormatado()}</Text>
+            <Text style={[styles.deliveryBadge, { fontSize: getFontSize(12) }]} numberOfLines={1}>📍 {obterEnderecoFormatado()}</Text>
           ) : (
             <Text style={[styles.deliveryBadge, { color: '#C97A7A', fontSize: getFontSize(12) }]}>📍 Sem endereço cadastrado</Text>
           )}
