@@ -1,46 +1,30 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  TextInput, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
+  StyleSheet, Text, View, TouchableOpacity, TextInput, 
+  KeyboardAvoidingView, Platform, ScrollView 
 } from 'react-native';
 import { COLORS } from './theme';
 
 export default function LoginScreen({
-  email, setEmail,
-  password, setPassword,
-  showPassword, setShowPassword,
-  nomeUsuario, setNomeUsuario,
-  rua, setRua,
-  numero, setNumero,
-  bairro, setBairro,
-  cidade, setCidade,
-  handleLogin,
-  handleSignUp,
-  statusCadastro, // 'ocioso' | 'carregando' | 'sucesso' | 'erro'
-  statusLogin     // 'ocioso' | 'carregando' | 'erro'
+  email, setEmail, password, setPassword, showPassword, setShowPassword,
+  nomeUsuario, setNomeUsuario, rua, setRua, numero, setNumero,
+  bairro, setBairro, cidade, setCidade, handleLogin, handleSignUp,
+  statusCadastro, statusLogin
 }) {
   const [activeTab, setActiveTab] = useState('entrar');
 
-  // Retorna a cor do botão de Login dependendo do estado
   const getLoginButtonStyles = () => {
-    if (statusLogin === 'carregando') return { bg: COLORS.gray, text: 'Entrando...' };
+    if (statusLogin === 'carregando') return { bg: COLORS.gray, text: 'A entrar...' };
     if (statusLogin === 'erro') return { bg: '#C62828', text: 'E-mail ou Senha Incorretos ❌' };
     return { bg: COLORS.primary, text: 'Entrar' };
   };
 
-  // Retorna a cor do botão de Cadastro dependendo do estado
   const getSignUpButtonStyles = () => {
-    if (statusCadastro === 'carregando') return { bg: COLORS.gray, text: 'Criando sua conta...' };
-    if (statusCadastro === 'sucesso') return { bg: '#2E7D32', text: 'Conta Criada com Sucesso!  🎉' };
-    if (statusCadastro === 'erro') return { bg: '#C62828', text: 'Erro ao Cadastrar ❌' };
-    return { bg: COLORS.primary, text: 'Finalizar Cadastro' };
+    if (statusCadastro === 'carregando') return { bg: COLORS.gray, text: 'A criar conta...' };
+    if (statusCadastro === 'sucesso') return { bg: '#2E7D32', text: 'Conta Criada! 🎉' };
+    if (statusCadastro === 'erro') return { bg: '#C62828', text: 'Erro ao Registar ❌' };
+    return { bg: COLORS.primary, text: 'Finalizar Registo' };
   };
 
   const loginStyle = getLoginButtonStyles();
@@ -50,26 +34,19 @@ export default function LoginScreen({
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.loginScrollContainer} keyboardShouldPersistTaps="always">
         <View style={styles.loginContent}>
-          
           <View style={styles.loginHeader}>
             <Text style={styles.loginTitle}>Coffee Shop</Text>
             <Text style={styles.loginSubtitle}>
-              {activeTab === 'entrar' ? 'Faça login para continuar' : 'Crie sua conta preenchendo os dados abaixo'}
+              {activeTab === 'entrar' ? 'Inicie sessão para continuar' : 'Crie a sua conta abaixo'}
             </Text>
           </View>
 
           <View style={styles.tabWrapper}>
-            <TouchableOpacity 
-              style={[styles.tabButton, activeTab === 'entrar' && styles.tabActive]} 
-              onPress={() => setActiveTab('entrar')}
-            >
+            <TouchableOpacity style={[styles.tabButton, activeTab === 'entrar' && styles.tabActive]} onPress={() => setActiveTab('entrar')}>
               <Text style={[styles.tabText, activeTab === 'entrar' && styles.tabTextActive]}>Entrar</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tabButton, activeTab === 'registrar' && styles.tabActive]} 
-              onPress={() => setActiveTab('registrar')}
-            >
-              <Text style={[styles.tabText, activeTab === 'registrar' && styles.tabTextActive]}>Cadastrar-se</Text>
+            <TouchableOpacity style={[styles.tabButton, activeTab === 'registrar' && styles.tabActive]} onPress={() => setActiveTab('registrar')}>
+              <Text style={[styles.tabText, activeTab === 'registrar' && styles.tabTextActive]}>Registar-se</Text>
             </TouchableOpacity>
           </View>
           
@@ -77,7 +54,7 @@ export default function LoginScreen({
             {activeTab === 'registrar' && (
               <>
                 <Text style={styles.inputLabel}>Nome Completo *</Text>
-                <TextInput style={styles.input} placeholder="Seu nome" value={nomeUsuario} onChangeText={setNomeUsuario} />
+                <TextInput style={styles.input} placeholder="O seu nome" value={nomeUsuario} onChangeText={setNomeUsuario} />
               </>
             )}
 
@@ -94,11 +71,9 @@ export default function LoginScreen({
 
             {activeTab === 'registrar' && (
               <View style={styles.addressSection}>
-                <Text style={styles.sectionDividerText}>📍 Endereço de Entrega (Opcional)</Text>
-                
+                <Text style={styles.sectionDividerText}>📍 Endereço de Contacto (Opcional)</Text>
                 <Text style={styles.inputLabel}>Rua / Logradouro</Text>
                 <TextInput style={styles.input} placeholder="Ex: Av. Principal" value={rua} onChangeText={setRua} />
-
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <Text style={styles.inputLabel}>Número</Text>
@@ -109,26 +84,17 @@ export default function LoginScreen({
                     <TextInput style={styles.input} placeholder="Centro" value={bairro} onChangeText={setBairro} />
                   </View>
                 </View>
-
                 <Text style={styles.inputLabel}>Cidade</Text>
-                <TextInput style={styles.input} placeholder="Sua cidade" value={cidade} onChangeText={setCidade} />
+                <TextInput style={styles.input} placeholder="A sua cidade" value={cidade} onChangeText={setCidade} />
               </View>
             )}
             
             {activeTab === 'entrar' ? (
-              <TouchableOpacity 
-                style={[styles.mainButton, { backgroundColor: loginStyle.bg }]} 
-                onPress={handleLogin}
-                disabled={statusLogin === 'carregando'}
-              >
+              <TouchableOpacity style={[styles.mainButton, { backgroundColor: loginStyle.bg }]} onPress={handleLogin} disabled={statusLogin === 'carregando'}>
                 <Text style={styles.mainButtonText}>{loginStyle.text}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity 
-                style={[styles.mainButton, { backgroundColor: signupStyle.bg }]} 
-                onPress={handleSignUp}
-                disabled={statusCadastro === 'carregando' || statusCadastro === 'sucesso'}
-              >
+              <TouchableOpacity style={[styles.mainButton, { backgroundColor: signupStyle.bg }]} onPress={handleSignUp} disabled={statusCadastro === 'carregando' || statusCadastro === 'sucesso'}>
                 <Text style={styles.mainButtonText}>{signupStyle.text}</Text>
               </TouchableOpacity>
             )}
