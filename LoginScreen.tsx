@@ -1,129 +1,266 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { 
-  StyleSheet, Text, View, TouchableOpacity, TextInput, 
-  KeyboardAvoidingView, Platform, ScrollView 
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { COLORS } from './theme';
 
 export default function LoginScreen({
-  email, setEmail, password, setPassword, showPassword, setShowPassword,
-  nomeUsuario, setNomeUsuario, rua, setRua, numero, setNumero,
-  bairro, setBairro, cidade, setCidade, handleLogin, handleSignUp,
-  statusCadastro, statusLogin
+  email, setEmail,
+  password, setPassword,
+  showPassword, setShowPassword,
+  nomeUsuario, setNomeUsuario,
+  rua, setRua,
+  numero, setNumero,
+  bairro, setBairro,
+  cidade, setCidade,
+  handleLogin, handleSignUp,
+  statusCadastro,
+  statusLogin,
 }) {
-  const [activeTab, setActiveTab] = useState('entrar');
-
-  const getLoginButtonStyles = () => {
-    if (statusLogin === 'carregando') return { bg: COLORS.gray, text: 'A entrar...' };
-    if (statusLogin === 'erro') return { bg: '#C62828', text: 'E-mail ou Senha Incorretos ❌' };
-    return { bg: COLORS.primary, text: 'Entrar' };
-  };
-
-  const getSignUpButtonStyles = () => {
-    if (statusCadastro === 'carregando') return { bg: COLORS.gray, text: 'A criar conta...' };
-    if (statusCadastro === 'sucesso') return { bg: '#2E7D32', text: 'Conta Criada! 🎉' };
-    if (statusCadastro === 'erro') return { bg: '#C62828', text: 'Erro ao Registar ❌' };
-    return { bg: COLORS.primary, text: 'Finalizar Registo' };
-  };
-
-  const loginStyle = getLoginButtonStyles();
-  const signupStyle = getSignUpButtonStyles();
+  const [abaAtiva, setAbaAtiva] = useState('login');
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.loginScrollContainer} keyboardShouldPersistTaps="always">
-        <View style={styles.loginContent}>
-          <View style={styles.loginHeader}>
-            <Text style={styles.loginTitle}>Coffee Shop</Text>
-            <Text style={styles.loginSubtitle}>
-              {activeTab === 'entrar' ? 'Inicie sessão para continuar' : 'Crie a sua conta abaixo'}
-            </Text>
-          </View>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      <StatusBar style="light" />
 
-          <View style={styles.tabWrapper}>
-            <TouchableOpacity style={[styles.tabButton, activeTab === 'entrar' && styles.tabActive]} onPress={() => setActiveTab('entrar')}>
-              <Text style={[styles.tabText, activeTab === 'entrar' && styles.tabTextActive]}>Entrar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.tabButton, activeTab === 'registrar' && styles.tabActive]} onPress={() => setActiveTab('registrar')}>
-              <Text style={[styles.tabText, activeTab === 'registrar' && styles.tabTextActive]}>Registar-se</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.form}>
-            {activeTab === 'registrar' && (
-              <>
-                <Text style={styles.inputLabel}>Nome Completo *</Text>
-                <TextInput style={styles.input} placeholder="O seu nome" value={nomeUsuario} onChangeText={setNomeUsuario} />
-              </>
-            )}
+      <View style={styles.header}>
+        <Text style={styles.logoText}>Cantos e Contos</Text>
+        <Text style={styles.tagline}>Seu cantinho favorito te espera</Text>
+      </View>
 
-            <Text style={styles.inputLabel}>E-mail *</Text>
-            <TextInput style={styles.input} placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-            
-            <Text style={styles.inputLabel}>Senha *</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput style={styles.passwordInput} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Text style={styles.showPasswordText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+      {/* Abas */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, abaAtiva === 'login' && styles.tabActive]}
+          onPress={() => setAbaAtiva('login')}
+        >
+          <Text style={[styles.tabText, abaAtiva === 'login' && styles.tabTextActive]}>
+            Entrar
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, abaAtiva === 'cadastro' && styles.tabActive]}
+          onPress={() => setAbaAtiva('cadastro')}
+        >
+          <Text style={[styles.tabText, abaAtiva === 'cadastro' && styles.tabTextActive]}>
+            Criar Conta
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.formContainer}>
+
+        {/* ABA LOGIN */}
+        {abaAtiva === 'login' && (
+          <>
+            <Text style={styles.title}>Bem-vindo de volta! 👋</Text>
+            <Text style={styles.subtitle}>Faça login para continuar</Text>
+
+            <Text style={styles.label}>E-mail</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="seu@email.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.label}>Senha</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Sua senha"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                <Text style={styles.eyeButtonText}>{showPassword ? '🙈' : '🙉'}</Text>
               </TouchableOpacity>
             </View>
 
-            {activeTab === 'registrar' && (
-              <View style={styles.addressSection}>
-                <Text style={styles.sectionDividerText}>📍 Endereço de Contacto (Opcional)</Text>
-                <Text style={styles.inputLabel}>Rua / Logradouro</Text>
-                <TextInput style={styles.input} placeholder="Ex: Av. Principal" value={rua} onChangeText={setRua} />
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.inputLabel}>Número</Text>
-                    <TextInput style={styles.input} placeholder="123" value={numero} onChangeText={setNumero} keyboardType="numeric" />
-                  </View>
-                  <View style={{ flex: 2 }}>
-                    <Text style={styles.inputLabel}>Bairro</Text>
-                    <TextInput style={styles.input} placeholder="Centro" value={bairro} onChangeText={setBairro} />
-                  </View>
-                </View>
-                <Text style={styles.inputLabel}>Cidade</Text>
-                <TextInput style={styles.input} placeholder="A sua cidade" value={cidade} onChangeText={setCidade} />
+            <TouchableOpacity
+              style={[styles.button, styles.loginButton, statusLogin === 'carregando' && { opacity: 0.6 }]}
+              onPress={handleLogin}
+              disabled={statusLogin === 'carregando'}
+            >
+              <Text style={styles.buttonText}>
+                {statusLogin === 'carregando' ? 'Entrando...' : 'Entrar'}
+              </Text>
+            </TouchableOpacity>
+
+            {statusLogin === 'erro' && (
+              <Text style={styles.errorText}>E-mail ou senha incorretos.</Text>
+            )}
+
+            <TouchableOpacity onPress={() => setAbaAtiva('cadastro')} style={styles.linkContainer}>
+              <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkBold}>Cadastre-se</Text></Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ABA CADASTRO */}
+        {abaAtiva === 'cadastro' && (
+          <>
+            <Text style={styles.title}>Crie sua conta! 🎉</Text>
+            <Text style={styles.subtitle}>Preencha os dados abaixo</Text>
+
+            <Text style={styles.label}>Nome *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Seu nome completo"
+              value={nomeUsuario}
+              onChangeText={setNomeUsuario}
+            />
+
+            <Text style={styles.label}>E-mail *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="seu@email.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.label}>Senha *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Crie uma senha"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                <Text style={styles.eyeButtonText}>{showPassword ? '🙈' : '🙉'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.label, { marginTop: 20 }]}>Endereço de Entrega</Text>
+
+            <Text style={styles.label}>Rua</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Rua"
+              value={rua}
+              onChangeText={setRua}
+            />
+
+            <View style={styles.row}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.label}>Número</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Num"
+                  value={numero}
+                  onChangeText={setNumero}
+                  keyboardType="numeric"
+                />
               </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Bairro</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Bairro"
+                  value={bairro}
+                  onChangeText={setBairro}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.label}>Cidade</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Cidade"
+              value={cidade}
+              onChangeText={setCidade}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, styles.signUpButton, statusCadastro === 'carregando' && { opacity: 0.6 }]}
+              onPress={handleSignUp}
+              disabled={statusCadastro === 'carregando'}
+            >
+              <Text style={styles.buttonText}>
+                {statusCadastro === 'carregando' ? 'Criando conta...' : 'Criar Conta'}
+              </Text>
+            </TouchableOpacity>
+
+            {statusCadastro === 'sucesso' && (
+              <Text style={styles.successText}>Conta criada com sucesso! 🎉</Text>
             )}
-            
-            {activeTab === 'entrar' ? (
-              <TouchableOpacity style={[styles.mainButton, { backgroundColor: loginStyle.bg }]} onPress={handleLogin} disabled={statusLogin === 'carregando'}>
-                <Text style={styles.mainButtonText}>{loginStyle.text}</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={[styles.mainButton, { backgroundColor: signupStyle.bg }]} onPress={handleSignUp} disabled={statusCadastro === 'carregando' || statusCadastro === 'sucesso'}>
-                <Text style={styles.mainButtonText}>{signupStyle.text}</Text>
-              </TouchableOpacity>
+            {statusCadastro === 'erro' && (
+              <Text style={styles.errorText}>Erro ao criar conta. Tente novamente.</Text>
             )}
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+            <TouchableOpacity onPress={() => setAbaAtiva('login')} style={styles.linkContainer}>
+              <Text style={styles.linkText}>Já tem conta? <Text style={styles.linkBold}>Entrar</Text></Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  loginScrollContainer: { flexGrow: 1, justifyContent: 'center', backgroundColor: COLORS.white },
-  loginContent: { padding: 25 },
-  loginHeader: { marginBottom: 20, alignItems: 'center' },
-  loginTitle: { fontSize: 36, fontWeight: 'bold', color: COLORS.accent },
-  loginSubtitle: { color: COLORS.gray, marginTop: 4, textAlign: 'center' },
-  tabWrapper: { flexDirection: 'row', backgroundColor: COLORS.lightGray, borderRadius: 12, padding: 4, marginBottom: 20 },
-  tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: COLORS.white },
-  tabText: { fontWeight: 'bold', color: COLORS.gray },
+  container: { flex: 1, backgroundColor: COLORS.white },
+  header: { alignItems: 'center', paddingVertical: 44, backgroundColor: COLORS.accent },
+  logoText: { fontSize: 36, fontWeight: 'bold', color: COLORS.secondary, letterSpacing: 2 },
+  tagline: { color: COLORS.white, marginTop: 8, opacity: 0.8 },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.sectionBg,
+    marginHorizontal: 24,
+    marginTop: 24,
+    borderRadius: 14,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 11,
+  },
+  tabActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: { fontWeight: '600', fontSize: 15, color: COLORS.gray },
   tabTextActive: { color: COLORS.accent },
-  form: { marginTop: 5 },
-  inputLabel: { fontWeight: 'bold', color: COLORS.accent, marginTop: 12, fontSize: 13 },
-  input: { backgroundColor: COLORS.sectionBg, padding: 14, borderRadius: 12, marginTop: 5, color: COLORS.textDark },
-  passwordInputWrapper: { flexDirection: 'row', backgroundColor: COLORS.sectionBg, borderRadius: 12, alignItems: 'center', paddingRight: 15, marginTop: 5 },
-  passwordInput: { flex: 1, padding: 14, color: COLORS.textDark },
-  showPasswordText: { color: COLORS.primary, fontWeight: 'bold' },
-  addressSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.lightGray },
-  sectionDividerText: { fontWeight: 'bold', color: COLORS.primary, marginBottom: 5 },
-  mainButton: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 25 },
-  mainButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 }
+  formContainer: { padding: 24 },
+  title: { fontWeight: 'bold', fontSize: 22, color: COLORS.accent },
+  subtitle: { color: COLORS.gray, marginTop: 4, fontSize: 14 },
+  label: { color: COLORS.accent, fontWeight: '600', marginTop: 16, fontSize: 14 },
+  input: {
+    backgroundColor: COLORS.sectionBg, padding: 15, borderRadius: 12,
+    fontSize: 15, color: COLORS.textDark, marginTop: 5,
+  },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
+  eyeButton: { padding: 10 },
+  eyeButtonText: { fontSize: 20 },
+  row: { flexDirection: 'row', marginTop: 4 },
+  button: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  loginButton: { backgroundColor: COLORS.primary },
+  signUpButton: { backgroundColor: COLORS.primary },
+  buttonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
+  successText: { color: COLORS.success, textAlign: 'center', marginTop: 15, fontWeight: '600' },
+  errorText: { color: COLORS.error, textAlign: 'center', marginTop: 15, fontWeight: '600' },
+  linkContainer: { alignItems: 'center', marginTop: 20 },
+  linkText: { color: COLORS.gray, fontSize: 14 },
+  linkBold: { color: COLORS.primary, fontWeight: 'bold' },
 });
