@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import {
   StyleSheet,
@@ -14,8 +13,34 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { COLORS } from './theme';
 import { supabase } from './supabase';
+import { Reserva, UsuarioLogado } from './App';
 
 const USER_IMAGE = require('./assets/icone-gato.jpg');
+
+interface ProfileScreenProps {
+  currentUser: UsuarioLogado | null;
+  nomeUsuario: string;
+  setNomeUsuario: (text: string) => void;
+  rua: string;
+  setRua: (text: string) => void;
+  numero: string;
+  setNumero: (text: string) => void;
+  bairro: string;
+  setBairro: (text: string) => void;
+  cidade: string;
+  setCidade: (text: string) => void;
+  notificacoesAtivas: boolean;
+  setNotificacoesAtivas: (value: boolean) => void;
+  fontSizeMode: string;
+  setFontSizeMode: (mode: string) => void;
+  getFontSize: (size: number) => number;
+  handleSalvarPerfil: () => Promise<void>;
+  onVoltar: () => void;
+  salvando: boolean;
+  handleLogout: () => void;
+  agendamentos: Reserva[];
+  setCurrentScreen: (screen: string) => void;
+}
 
 export default function ProfileScreen({
   currentUser,
@@ -32,9 +57,9 @@ export default function ProfileScreen({
   salvando,
   agendamentos = [],
   setCurrentScreen,
-  onRecarregarAgendamentos,
-}) {
-  const handleLogout = async () => {
+}: ProfileScreenProps) {
+  
+  const handleLogoutAction = async () => {
     Alert.alert('Sair da Conta', 'Tem certeza que deseja sair?', [
       { text: 'Cancelar', style: 'cancel' },
       { 
@@ -44,14 +69,19 @@ export default function ProfileScreen({
           try {
             const { error } = await supabase.auth.signOut();
             if (error) throw error;
+            
             setNomeUsuario('');
             setRua('');
             setNumero('');
             setBairro('');
             setCidade('');
-            if (setCurrentScreen) setCurrentScreen('login');
+            
+            if (setCurrentScreen) {
+              setCurrentScreen('login');
+            }
+            
             Alert.alert('Sucesso', 'Você saiu!');
-          } catch (error) {
+          } catch (error: any) {
             Alert.alert('Erro', error.message);
           }
         }
@@ -213,7 +243,10 @@ export default function ProfileScreen({
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+      <TouchableOpacity 
+        style={styles.logoutButton} 
+        onPress={handleLogoutAction}
+      >
         <Text style={styles.logoutButtonText}>Sair da Conta</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -222,16 +255,11 @@ export default function ProfileScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  header: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray 
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray },
   headerTitle: { fontWeight: 'bold', color: COLORS.accent },
   backButton: { paddingVertical: 4, paddingRight: 12 },
   backButtonText: { color: COLORS.primary, fontWeight: '600', fontSize: 15 },
-  profileHeader: { 
-    alignItems: 'center', paddingVertical: 24, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray 
-  },
+  profileHeader: { alignItems: 'center', paddingVertical: 24, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray },
   avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: COLORS.secondary },
   userName: { fontWeight: 'bold', color: COLORS.accent, marginTop: 12 },
   userEmail: { color: COLORS.gray, marginTop: 4 },

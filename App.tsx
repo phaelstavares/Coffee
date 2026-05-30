@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import {
@@ -14,62 +13,129 @@ import {
   Modal,
   TextInput,
   Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 
 import { COLORS } from './theme';
 import LoginScreen from './LoginScreen';
 import ProfileScreen from './ProfileScreen';
 
-const USER_IMAGE = require('./assets/icone-gato.jpg');
+const USER_IMAGE: ImageSourcePropType = require('./assets/icone-gato.jpg');
+
+// Interfaces para Tipagem do Projeto
+export interface Perfil {
+  id: string;
+  nome_usuario: string;
+  rua?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  coords?: string | null;
+}
+
+export interface Espaco {
+  id: number;
+  nome: string;
+  categoria: string;
+  descricao?: string;
+}
+
+export interface Produto {
+  id: number;
+  espaco_id: number;
+  nome: string;
+  preco: number;
+  descricao?: string;
+}
+
+export interface ItemPreEncomenda extends Produto {
+  quantidade: number;
+}
+
+export interface Reserva {
+  id: number;
+  user_id: string;
+  espaco_id: number;
+  status: 'Agendado' | 'Cancelado';
+  data_reserva: string;
+  hora_reserva: string;
+  mesa?: string;
+  observacao?: string;
+  created_at: string;
+  espacos?: {
+    nome: string;
+  };
+}
+
+export interface UsuarioLogado {
+  id: string;
+  email?: string;
+  avatar: ImageSourcePropType;
+}
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('splash');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<string>('splash');
+  const [currentUser, setCurrentUser] = useState<UsuarioLogado | null>(null);
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  const [listaEspacos, setListaEspacos] = useState([]);
-  const [filtroAtivo, setFiltroAtivo] = useState('Todos');
-  const [espacoSelecionado, setEspacoSelecionado] = useState(null);
-  const [cardapioEspaco, setCardapioEspaco] = useState([]);
-  const [carregandoCardapio, setCarregandoCardapio] = useState(false);
+  const [listaEspacos, setListaEspacos] = useState<Espaco[]>([]);
+  const [filtroAtivo, setFiltroAtivo] = useState<string>('Todos');
+  const [espacoSelecionado, setEspacoSelecionado] = useState<Espaco | null>(null);
+  const [cardapioEspaco, setCardapioEspaco] = useState<Produto[]>([]);
+  const [carregandoCardapio, setCarregandoCardapio] = useState<boolean>(false);
 
-  const [nomeUsuario, setNomeUsuario] = useState('');
-  const [rua, setRua] = useState('');
-  const [numero, setNumero] = useState('');
-  const [bairro, setBairro] = useState('');
-  const [cidade, setCidade] = useState('');
+  const [nomeUsuario, setNomeUsuario] = useState<string>('');
+  const [rua, setRua] = useState<string>('');
+  const [numero, setNumero] = useState<string>('');
+  const [bairro, setBairro] = useState<string>('');
+  const [cidade, setCidade] = useState<string>('');
 
-  const [salvando, setSalvando] = useState(false);
-  const [statusCadastro, setStatusCadastro] = useState('ocioso');
-  const [statusLogin, setStatusLogin] = useState('ocioso');
+  const [salvando, setSalvando] = useState<boolean>(false);
+  const [statusCadastro, setStatusCadastro] = useState<string>('ocioso');
+  const [statusLogin, setStatusLogin] = useState<string>('ocioso');
 
-  const [fontSizeMode, setFontSizeMode] = useState('padrao');
-  const [notificacoesAtivas, setNotificacoesAtivas] = useState(true);
+  const [fontSizeMode, setFontSizeMode] = useState<string>('padrao');
+  const [notificacoesAtivas, setNotificacoesAtivas] = useState<boolean>(true);
   
-  const [mostrandoAgendamento, setMostrandoAgendamento] = useState(false);
-  const [dataReserva, setDataReserva] = useState('');
-  const [horaReserva, setHoraReserva] = useState('');
-  const [mesaSelecionada, setMesaSelecionada] = useState(null);
-  const [mesasDisponiveis, setMesasDisponiveis] = useState([]);
-  const [observacao, setObservacao] = useState('');
-  const [agendamentosDoUsuario, setAgendamentosDoUsuario] = useState([]);
+  const [mostrandoAgendamento, setMostrandoAgendamento] = useState<boolean>(false);
+  const [dataReserva, setDataReserva] = useState<string>('');
+  const [horaReserva, setHoraReserva] = useState<string>('');
+  const [mesaSelecionada, setMesaSelecionada] = useState<string | null>(null);
+  const [mesasDisponiveis, setMesasDisponiveis] = useState<string[]>([]);
+  const [observacao, setObservacao] = useState<string>('');
+  const [agendamentosDoUsuario, setAgendamentosDoUsuario] = useState<Reserva[]>([]);
   
-  // NOVO: Estados para pré-encomenda
-  const [itensPreEncomendados, setItensPreEncomendados] = useState([]);
+  const [itensPreEncomendados, setItensPreEncomendados] = useState<ItemPreEncomenda[]>([]);
 
-  const getFontSize = (baseSize) => {
+  const obterCoordenadasGps = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+
+      let local = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      return local.coords;
+    } catch (e) {
+      console.log("Erro ao capturar GPS:", e);
+      return null;
+    }
+  };
+
+  const getFontSize = (baseSize: number): number => {
     if (fontSizeMode === 'media') return baseSize * 1.2;
     if (fontSizeMode === 'grande') return baseSize * 1.4;
     return baseSize;
   };
 
-  const validarDataReserva = (dataStr) => {
+  const validarDataReserva = (dataStr: string): boolean => {
     const partes = dataStr.split('/');
     if (partes.length !== 3) return false;
-    const [dia, mes, ano] = partes;
+    const [dia, mes, ano] = partes.map(Number);
     const dataObj = new Date(ano, mes - 1, dia);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -78,7 +144,7 @@ export default function App() {
     return dataObj >= hoje && dataObj <= seisMeses;
   };
 
-  const carregarMesasDisponiveis = async (data, hora) => {
+  const carregarMesasDisponiveis = async (data: string, hora: string) => {
     if (!data || !hora || !espacoSelecionado) return;
     try {
       const { data: reservas, error } = await supabase
@@ -95,7 +161,7 @@ export default function App() {
         return;
       }
       
-      const mesasOcupadas = new Set(reservas?.map(r => r.mesa) || []);
+      const mesasOcupadas = new Set(reservas?.map((r: any) => r.mesa) || []);
       const todasMesas = ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Mesa 5', 'Mesa 6', 'Mesa 7', 'Mesa 8'];
       setMesasDisponiveis(todasMesas.filter(m => !mesasOcupadas.has(m)));
     } catch (error) {
@@ -103,8 +169,7 @@ export default function App() {
     }
   };
 
-  // NOVO: Funções para pré-encomenda
-  const togglePreEncomenda = (produto) => {
+  const togglePreEncomenda = (produto: Produto) => {
     setItensPreEncomendados(prev => {
       const existe = prev.find(item => item.id === produto.id);
       if (existe) {
@@ -114,7 +179,7 @@ export default function App() {
     });
   };
 
-  const aumentarQuantidadePre = (produtoId) => {
+  const aumentarQuantidadePre = (produtoId: number) => {
     setItensPreEncomendados(prev =>
       prev.map(item =>
         item.id === produtoId
@@ -124,7 +189,7 @@ export default function App() {
     );
   };
 
-  const diminuirQuantidadePre = (produtoId) => {
+  const diminuirQuantidadePre = (produtoId: number) => {
     setItensPreEncomendados(prev =>
       prev.map(item =>
         item.id === produtoId
@@ -134,7 +199,7 @@ export default function App() {
     );
   };
 
-  const getResumoPreEncomenda = () => {
+  const getResumoPreEncomenda = (): string => {
     if (itensPreEncomendados.length === 0) return '';
     return itensPreEncomendados.map(item => 
       `${item.quantidade}x ${item.nome}`
@@ -142,7 +207,7 @@ export default function App() {
   };
 
   const agendarEspaco = async () => {
-    if (!currentUser?.id) {
+    if (!currentUser?.id || !espacoSelecionado) {
       Alert.alert('Atenção', 'Faça login para agendar.');
       setCurrentScreen('login');
       return;
@@ -197,7 +262,7 @@ export default function App() {
       
       await carregarAgendamentos();
       
-    } catch (error) {
+    } catch (error: any) {
       Alert.alert('Erro', error.message);
     } finally {
       setSalvando(false);
@@ -214,17 +279,21 @@ export default function App() {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
       if (authError) throw authError;
       if (authData?.user) {
+        const gps = await obterCoordenadasGps();
+        const pontoGeografico = gps ? `POINT(${gps.longitude} ${gps.latitude})` : null;
+
         await supabase.from('perfis').insert({
           id: authData.user.id,
           nome_usuario: nomeUsuario,
           rua, numero, bairro, cidade,
+          coords: pontoGeografico
         });
         setStatusCadastro('sucesso');
-        setCurrentUser({ id: authData.user.id, email: authData.user.email, avatar: USER_IMAGE });
+        setCurrentUser({ id: authData.user.id, email: authData.user.email ?? undefined, avatar: USER_IMAGE });
         Alert.alert('Conta Criada! 🎉', `Bem-vindo, ${nomeUsuario}!`);
         setCurrentScreen('home');
       }
-    } catch (error) {
+    } catch (error: any) {
       setStatusCadastro('erro');
       Alert.alert('Erro', error.message);
       setTimeout(() => setStatusCadastro('ocioso'), 3000);
@@ -240,10 +309,12 @@ export default function App() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      setCurrentUser({ id: data.user.id, email: data.user.email, avatar: USER_IMAGE });
-      await buscarPerfil(data.user.id);
-      setStatusLogin('ocioso');
-      setCurrentScreen('home');
+      if (data?.user) {
+        setCurrentUser({ id: data.user.id, email: data.user.email ?? undefined, avatar: USER_IMAGE });
+        await buscarPerfil(data.user.id);
+        setStatusLogin('ocioso');
+        setCurrentScreen('home');
+      }
     } catch (error) {
       setStatusLogin('erro');
       Alert.alert('Erro', 'E-mail ou senha incorretos.');
@@ -251,7 +322,7 @@ export default function App() {
     }
   };
 
-  const buscarPerfil = async (userId) => {
+  const buscarPerfil = async (userId: string) => {
     const { data } = await supabase.from('perfis').select('*').eq('id', userId).single();
     if (data) {
       setNomeUsuario(data.nome_usuario || '');
@@ -263,20 +334,24 @@ export default function App() {
   };
 
   const handleSalvarPerfil = async () => {
-    if (!nomeUsuario.trim()) {
+    if (!nomeUsuario.trim() || !currentUser) {
       Alert.alert('Erro', 'Nome obrigatório.');
       return;
     }
     setSalvando(true);
     try {
+      const gps = await obterCoordenadasGps();
+      const pontoGeografico = gps ? `POINT(${gps.longitude} ${gps.latitude})` : null;
+
       await supabase.from('perfis').upsert({
         id: currentUser.id,
         nome_usuario: nomeUsuario,
         rua, numero, bairro, cidade,
+        coords: pontoGeografico,
       });
-      Alert.alert('Sucesso', 'Perfil atualizado!');
+      Alert.alert('Sucesso', 'Perfil atualizado com sua localização atual!');
       setCurrentScreen('home');
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert('Erro', err.message);
     } finally {
       setSalvando(false);
@@ -285,21 +360,21 @@ export default function App() {
 
   const carregarEspacos = async () => {
     const { data } = await supabase.from('espacos').select('*');
-    if (data) setListaEspacos(data);
+    if (data) setListaEspacos(data as Espaco[]);
   };
 
-  const abrirEspaco = async (espaco) => {
+  const abrirEspaco = async (espaco: Espaco) => {
     setEspacoSelecionado(espaco);
     setCardapioEspaco([]);
-    setItensPreEncomendados([]);  // Limpa pré-encomendas
+    setItensPreEncomendados([]);  
     setCarregandoCardapio(true);
     setCurrentScreen('detalhe');
     const { data } = await supabase.from('produtos').select('*').eq('espaco_id', espaco.id).order('nome');
-    setCardapioEspaco(data || []);
+    setCardapioEspaco((data as Produto[]) || []);
     setCarregandoCardapio(false);
   };
 
-  const getEndereco = () => {
+  const getEndereco = (): string => {
     if (!rua) return '';
     return `${rua}${numero ? ', ' + numero : ''}${bairro ? ' - ' + bairro : ''}`;
   };
@@ -311,7 +386,7 @@ export default function App() {
       .select('*, espacos(nome)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false });
-    setAgendamentosDoUsuario(data || []);
+    setAgendamentosDoUsuario((data as Reserva[]) || []);
   };
 
   useEffect(() => {
@@ -378,6 +453,7 @@ export default function App() {
         salvando={salvando}
         handleLogout={() => { setCurrentUser(null); setCurrentScreen('login'); }}
         agendamentos={agendamentosDoUsuario}
+        setCurrentScreen={setCurrentScreen}
       />
     );
   }
@@ -466,7 +542,7 @@ export default function App() {
                           {estaEncomendado && <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: 'bold' }}>✓</Text>}
                         </View>
                       </View>
-                      <Text style={{ color: COLORS.primary, fontWeight: 'bold', marginTop: 3 }}>R$ {parseFloat(item.preco || 0).toFixed(2)}</Text>
+                      <Text style={{ color: COLORS.primary, fontWeight: 'bold', marginTop: 3 }}>R$ {item.preco.toFixed(2)}</Text>
                       {item.descricao && <Text style={{ color: COLORS.gray, fontSize: 12 }} numberOfLines={2}>{item.descricao}</Text>}
                       <Text style={{ color: COLORS.gray, fontSize: 11, fontStyle: 'italic', marginTop: 5 }}>
                         {estaEncomendado ? '✅ Toc para remover' : '📝 Toc para pré-encomendar'}
@@ -497,7 +573,7 @@ export default function App() {
 
         <Modal visible={mostrandoAgendamento} animationType="slide" transparent={true} onRequestClose={() => setMostrandoAgendamento(false)}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%', overflowY: 'auto' }}>
+            <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
                 <Text style={{ fontWeight: 'bold', fontSize: 20, color: COLORS.accent }}>📅 Agendar + Pré-encomendar</Text>
                 <TouchableOpacity onPress={() => setMostrandoAgendamento(false)}>
@@ -508,23 +584,25 @@ export default function App() {
               {itensPreEncomendados.length > 0 ? (
                 <>
                   <Text style={{ color: COLORS.accent, fontWeight: '600', marginTop: 15, fontSize: 16 }}>🛒 Pré-encomendas:</Text>
-                  {itensPreEncomendados.map((item) => (
-                    <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '600', color: COLORS.accent }}>{item.quantidade}x {item.nome}</Text>
-                        <Text style={{ color: COLORS.primary, fontSize: 13 }}>R$ {(item.preco * item.quantidade).toFixed(2)}</Text>
+                  <ScrollView style={{ maxHeight: 150 }}>
+                    {itensPreEncomendados.map((item) => (
+                      <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontWeight: '600', color: COLORS.accent }}>{item.quantidade}x {item.nome}</Text>
+                          <Text style={{ color: COLORS.primary, fontSize: 13 }}>R$ {(item.preco * item.quantidade).toFixed(2)}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <TouchableOpacity onPress={() => diminuirQuantidadePre(item.id)} style={{ backgroundColor: COLORS.sectionBg, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>−</Text>
+                          </TouchableOpacity>
+                          <Text style={{ fontWeight: 'bold', fontSize: 15 }}>{item.quantidade}</Text>
+                          <TouchableOpacity onPress={() => aumentarQuantidadePre(item.id)} style={{ backgroundColor: COLORS.sectionBg, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>+</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <TouchableOpacity onPress={() => diminuirQuantidadePre(item.id)} style={{ backgroundColor: COLORS.sectionBg, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 18 }}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={{ fontWeight: 'bold', fontSize: 15 }}>{item.quantidade}</Text>
-                        <TouchableOpacity onPress={() => aumentarQuantidadePre(item.id)} style={{ backgroundColor: COLORS.sectionBg, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 18 }}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
+                    ))}
+                  </ScrollView>
                   
                   <View style={{ backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginTop: 12 }}>
                     <Text style={{ color: '#E65100', fontWeight: '600', fontSize: 13 }}>⚠️ PAGAMENTO NO LOCAL</Text>
@@ -565,17 +643,11 @@ export default function App() {
                 maxLength={5}
               />
 
-              <TouchableOpacity
-                style={{ backgroundColor: COLORS.secondary, padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 15, opacity: (dataReserva.length === 10 && horaReserva.length === 5) ? 1 : 0.4 }}
-                onPress={() => carregarMesasDisponiveis(dataReserva, horaReserva)}
-                disabled={dataReserva.length < 10 || horaReserva.length < 5}
-              >
-                <Text style={{ color: COLORS.accent, fontWeight: 'bold', fontSize: 14 }}>🔍 Buscar Mesas Disponíveis</Text>
-              </TouchableOpacity>
-
               <Text style={{ color: COLORS.accent, fontWeight: '600', marginTop: 15 }}>Escolha uma mesa</Text>
-              {mesasDisponiveis.length === 0 ? (
-                <Text style={{ color: COLORS.gray, fontStyle: 'italic', marginTop: 5 }}>Clique em "Buscar Mesas" acima</Text>
+              {mesasDisponiveis.length === 0 && dataReserva && horaReserva ? (
+                <Text style={{ color: COLORS.gray, fontStyle: 'italic', marginTop: 5 }}>Preencha data e hora</Text>
+              ) : mesasDisponiveis.length === 0 ? (
+                <Text style={{ color: COLORS.gray, fontStyle: 'italic', marginTop: 5 }}>Nenhuma mesa ainda</Text>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 5 }}>
                   {mesasDisponiveis.map((mesa) => (
